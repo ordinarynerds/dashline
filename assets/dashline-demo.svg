@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300" font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace">
+  <rect x="1" y="1" width="998" height="298" rx="14" fill="#11111b" stroke="#313244" stroke-width="1.5"/>
+  <path d="M1 15 A14 14 0 0 1 15 1 H985 A14 14 0 0 1 999 15 V44 H1 Z" fill="#181825"/>
+  <circle cx="26" cy="22" r="6" fill="#f38ba8"/>
+  <circle cx="46" cy="22" r="6" fill="#f9e2af"/>
+  <circle cx="66" cy="22" r="6" fill="#a6e3a1"/>
+  <text x="500" y="27" text-anchor="middle" font-size="13" fill="#6c7086">dashline — Claude Code status line</text>
+
+  <!-- ok / green -->
+  <text x="28" y="112" font-size="16" xml:space="preserve">
+    <tspan fill="#cdd6f4" font-weight="700">Opus 4.8 </tspan><tspan fill="#a6e3a1" font-weight="700">16% </tspan><tspan fill="#a6e3a1">█</tspan><tspan fill="#45475a">░░░░░░░░░</tspan><tspan fill="#6c7086"> (160k/1.0M)</tspan>
+  </text>
+  <text x="972" y="112" text-anchor="end" font-size="16" xml:space="preserve">
+    <tspan fill="#6c7086">session </tspan><tspan fill="#a6e3a1">6%</tspan><tspan fill="#6c7086"> (↻3h57m) · All </tspan><tspan fill="#a6e3a1">19%</tspan>
+  </text>
+
+  <!-- high / yellow -->
+  <text x="28" y="160" font-size="16" xml:space="preserve">
+    <tspan fill="#cdd6f4" font-weight="700">Opus 4.8 </tspan><tspan fill="#f9e2af" font-weight="700">44% </tspan><tspan fill="#f9e2af">████</tspan><tspan fill="#45475a">░░░░░░</tspan><tspan fill="#6c7086"> (440k/1.0M)</tspan><tspan fill="#f9e2af"> · high</tspan>
+  </text>
+  <text x="972" y="160" text-anchor="end" font-size="16" xml:space="preserve">
+    <tspan fill="#6c7086">session </tspan><tspan fill="#a6e3a1">61%</tspan><tspan fill="#6c7086"> (↻2h11m) · All </tspan><tspan fill="#f9e2af">74%</tspan>
+  </text>
+
+  <!-- compact / red -->
+  <text x="28" y="208" font-size="16" xml:space="preserve">
+    <tspan fill="#cdd6f4" font-weight="700">Opus 4.8 </tspan><tspan fill="#f38ba8" font-weight="700">82% </tspan><tspan fill="#f38ba8">████████</tspan><tspan fill="#45475a">░░</tspan><tspan fill="#6c7086"> (820k/1.0M)</tspan><tspan fill="#f38ba8" font-weight="700"> → /compact</tspan><tspan fill="#6c7086"> [next goal/task]</tspan>
+  </text>
+  <text x="972" y="208" text-anchor="end" font-size="16" xml:space="preserve">
+    <tspan fill="#6c7086">session </tspan><tspan fill="#f38ba8">92%</tspan><tspan fill="#6c7086"> (↻1h03m) · All </tspan><tspan fill="#a6e3a1">40%</tspan>
+  </text>
+
+  <line x1="28" y1="240" x2="972" y2="240" stroke="#313244" stroke-width="1"/>
+  <text x="28" y="266" font-size="13" fill="#6c7086" xml:space="preserve">context window — <tspan fill="#a6e3a1">ok</tspan> · <tspan fill="#f9e2af">high</tspan> · <tspan fill="#f38ba8">compact</tspan></text>
+  <text x="972" y="266" text-anchor="end" font-size="13" fill="#6c7086">subscription usage — session (5h) + weekly, live reset countdown</text>
+</svg>

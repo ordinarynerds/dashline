@@ -1,0 +1,11 @@
+{
+  "name": "dashline",
+  "version": "0.1.0",
+  "description": "A two-part Claude Code status line: context-window fill with a /compact nudge on the left, subscription usage (session + weekly) on the right.",
+  "author": {
+    "name": "Ordinary Nerds",
+    "url": "https://github.com/ordinarynerds"
+  },
+  "homepage": "https://github.com/ordinarynerds/dashline",
+  "license": "MIT"
+}
