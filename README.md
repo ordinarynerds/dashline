@@ -21,17 +21,30 @@ a `→ /compact` prompt. The usage side counts down to your next session reset.
 
 ## Install
 
-dashline is a status-line command. A Claude Code plugin can't set the main status line
-itself, so you point `settings.json` at the script.
+A Claude Code plugin can't set the main status line on its own, so either way ends with
+`settings.json` pointing at the script. The plugin route runs that step for you.
 
-**1. Get the script**
+### As a plugin (recommended)
+
+```
+/plugin marketplace add ordinarynerds/dashline
+/plugin install dashline@ordinarynerds
+/dashline:install
+```
+
+`/dashline:install` backs up `settings.json` and points your status line at the
+installed script. Start a new session (or run `/statusline`) to see it.
+
+### Manual
+
+Clone it and run the installer:
 
 ```bash
 git clone https://github.com/ordinarynerds/dashline.git ~/.claude/dashline
+~/.claude/dashline/scripts/install.sh
 ```
 
-**2. Point your status line at it.** Add this to `~/.claude/settings.json`, using the
-absolute path to the script:
+Or set it by hand in `~/.claude/settings.json`, using the absolute path to the script:
 
 ```json
 {
@@ -43,15 +56,8 @@ absolute path to the script:
 }
 ```
 
-Start a new session (or run `/statusline`) and it shows up. That's it.
-
-For updates through the plugin system, add it as a marketplace, then wire the
-status line as above:
-
-```
-/plugin marketplace add ordinarynerds/dashline
-/plugin install dashline@dashline
-```
+To remove it, run `scripts/install.sh --uninstall`, or restore the
+`settings.json.bak-dashline-*` backup the installer leaves behind.
 
 **Requirements:** `bash`, `jq`, and `awk` (present on macOS and most Linux). `perl` is
 used for right-justifying the usage half; without it the two halves fall back to a

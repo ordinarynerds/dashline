@@ -1,5 +1,6 @@
 {
-  "name": "dashline",
+  "name": "ordinarynerds",
+  "description": "Status-line tools for Claude Code by Ordinary Nerds.",
   "owner": {
     "name": "Ordinary Nerds",
     "url": "https://github.com/ordinarynerds"

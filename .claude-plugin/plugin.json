@@ -7,5 +7,7 @@
     "url": "https://github.com/ordinarynerds"
   },
   "homepage": "https://github.com/ordinarynerds/dashline",
-  "license": "MIT"
+  "repository": "https://github.com/ordinarynerds/dashline",
+  "license": "MIT",
+  "keywords": ["status-line", "statusline", "context-window", "usage", "claude-code"]
 }
