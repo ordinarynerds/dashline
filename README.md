@@ -5,7 +5,7 @@ how much of your subscription you've spent on the right. It tells you to `/compa
 before quality drops, and shows how much session and weekly budget you have left,
 without opening `/usage`.
 
-![dashline status line: context fill on the left, session and weekly usage on the right](assets/dashline-demo.svg)
+![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
 ## Why
 
