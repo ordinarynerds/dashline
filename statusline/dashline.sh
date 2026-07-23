@@ -21,6 +21,7 @@
 #   DASHLINE_USAGE_WARN  usage % yellow at/above this              (default 70)
 #   DASHLINE_USAGE_CRIT  usage % red at/above this                 (default 90)
 #   DASHLINE_USAGE       set to 0 to hide the right (usage) half   (default 1/on)
+#   DASHLINE_GIT         set to 0 to hide the git branch/worktree  (default 1/on)
 #   DASHLINE_COLS        override terminal width for justification (default auto)
 #   DASHLINE_MARGIN      cols kept free at the right edge          (default 5)
 set -u
@@ -33,13 +34,15 @@ WIDTH=${DASHLINE_WIDTH:-10}
 USAGE_WARN=${DASHLINE_USAGE_WARN:-70}
 USAGE_CRIT=${DASHLINE_USAGE_CRIT:-90}
 SHOW_USAGE=${DASHLINE_USAGE:-1}
+SHOW_GIT=${DASHLINE_GIT:-1}
 
-GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[1;31m'
+GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[1;31m'; CYN=$'\033[36m'
 DIM=$'\033[2m'; BOLD=$'\033[1m'; RST=$'\033[0m'
 
 now=$(date +%s 2>/dev/null || echo 0)
 HAVE_JQ=0; command -v jq >/dev/null 2>&1 && HAVE_JQ=1
 HAVE_PERL=0; command -v perl >/dev/null 2>&1 && HAVE_PERL=1
+HAVE_GIT=0; command -v git >/dev/null 2>&1 && HAVE_GIT=1
 
 human() { awk -v n="$1" 'BEGIN{
   if (n=="") { print ""; }
@@ -72,15 +75,40 @@ vislen() {
 }
 
 # ============================ LEFT: context window ============================
-pct=""; used=""; size=""; model=""
+pct=""; used=""; size=""; model=""; dir=""
 if [ "$HAVE_JQ" = 1 ]; then
   IFS='|' read -r pct used size < <(printf '%s' "$input" | jq -r '
     (.context_window // {}) as $c
     | "\($c.used_percentage // "")|\($c.total_input_tokens // $c.current_usage.input_tokens // "")|\($c.context_window_size // "")"' 2>/dev/null)
   # Model name, minus any "(… context)" parenthetical: "Opus 4.8 (1M context)" -> "Opus 4.8".
   model=$(printf '%s' "$input" | jq -r '.model.display_name // ""' 2>/dev/null | sed -E 's/ *\([^)]*\)[[:space:]]*$//')
+  dir=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // ""' 2>/dev/null)
 fi
 [ -z "$model" ] && model="ctx"
+
+# ---- git: active branch (short SHA if detached) + linked-worktree name --------
+# The payload has workspace.repo but no branch, so ask git directly.
+gitseg=""
+case "$SHOW_GIT" in
+  1|true|TRUE|yes|on)
+    if [ "$HAVE_GIT" = 1 ] && [ -n "${dir:-}" ]; then
+      gout=$(git -C "$dir" rev-parse --abbrev-ref HEAD --absolute-git-dir 2>/dev/null)
+      if [ -n "$gout" ]; then
+        branch=$(printf '%s\n' "$gout" | sed -n 1p)
+        gdir=$(printf '%s\n' "$gout" | sed -n 2p)
+        [ "$branch" = "HEAD" ] && branch=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)
+        wt=""
+        case "$gdir" in
+          */worktrees/*) wt=$(basename "$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)") ;;
+        esac
+        if [ -n "$branch" ]; then
+          gitseg="${DIM}⎇ ${RST}${CYN}${branch}${RST}"
+          [ -n "$wt" ] && gitseg="$gitseg ${DIM}(${wt})${RST}"
+        fi
+      fi
+    fi
+    ;;
+esac
 
 p_int=""
 if [ -n "${pct:-}" ]; then
@@ -114,9 +142,16 @@ if [ -n "$p_int" ]; then
 
   toks=""
   [ -n "${used:-}" ] && [ -n "${size:-}" ] && toks=" ${DIM}($(human "$used")/$(human "$size"))${RST}"
-  left="${BOLD}${model}${RST} ${col}${BOLD}${p_int}%${RST} ${col}${bar}${RST}${toks}${hint}"
+  body="${BOLD}${model}${RST} ${col}${BOLD}${p_int}%${RST} ${col}${bar}${RST}${toks}${hint}"
 else
-  left="${BOLD}${model}${RST} ${DIM}--${RST}"   # null right after /compact or pre-first-call
+  body="${BOLD}${model}${RST} ${DIM}--${RST}"   # null right after /compact or pre-first-call
+fi
+
+# Git branch/worktree leads the left group, shell-prompt style (quiet styling).
+if [ -n "$gitseg" ]; then
+  left="${gitseg}  ${body}"
+else
+  left="$body"
 fi
 
 # ============================ RIGHT: subscription usage ======================

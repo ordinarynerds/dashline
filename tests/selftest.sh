@@ -56,6 +56,14 @@ check "graceful null context after /compact" \
   '{"model":{"display_name":"Opus 4.8"},"context_window":null}' \
   'Opus 4.8 --'
 
+# This repo is a git checkout, so pointing current_dir at it should surface a branch.
+check "git branch shown for a repo dir" \
+  '{"model":{"display_name":"Opus 4.8"},"workspace":{"current_dir":"'"$DIR"'"},"context_window":{"used_percentage":10,"total_input_tokens":100000,"context_window_size":1000000}}' \
+  '⎇'
+
+git_out=$(printf '%s' '{"model":{"display_name":"Opus 4.8"},"workspace":{"current_dir":"/"},"context_window":{"used_percentage":10,"total_input_tokens":100000,"context_window_size":1000000}}' | DASHLINE_GIT=0 COLUMNS=130 "$SL" | plain)
+if printf '%s' "$git_out" | grep -qF '⎇'; then fail=$((fail+1)); printf '  FAIL git hidden with DASHLINE_GIT=0\n'; else pass=$((pass+1)); printf '  ok   git hidden with DASHLINE_GIT=0\n'; fi
+
 echo "-----"
 printf '%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

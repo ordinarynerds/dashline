@@ -66,11 +66,13 @@ fixed gap.
 ## Reading it
 
 ```
-Opus 4.8 44% ████░░░░░░ (440k/1.0M) · high        session 61% (↻2h11m) · All 74%
+⎇ main  Opus 4.8 44% ████░░░░░░ (440k/1.0M) · high      session 61% (↻2h11m) · All 74%
 ```
 
 **Left: context window**
 
+- `⎇ main`: the current git branch. In a linked git worktree it also shows the worktree
+  folder, e.g. `⎇ fix (hotfix-wt)`. Hidden outside a repo.
 - `Opus 4.8`: the current model.
 - `44% ████░░░░░░`: how full the window is. Green under 40%, yellow ("high") from 40%,
   red with `→ /compact [next goal/task]` from 50%. `[next goal/task]` is a reminder that
@@ -98,6 +100,7 @@ picks up your environment, or edit the defaults at the top of `dashline.sh`.
 | `DASHLINE_USAGE`        | `1`     | set to `0` to hide the usage half             |
 | `DASHLINE_USAGE_WARN`   | `70`    | usage % turns yellow at/above this            |
 | `DASHLINE_USAGE_CRIT`   | `90`    | usage % turns red at/above this               |
+| `DASHLINE_GIT`          | `1`     | set to `0` to hide the git branch/worktree    |
 | `DASHLINE_MARGIN`       | `5`     | columns left free at the right edge           |
 | `DASHLINE_COLS`         | auto    | override terminal width for justification     |
 
@@ -115,6 +118,9 @@ sync between releases.
 - Usage comes from `rate_limits.five_hour` and `rate_limits.seven_day`, each with a
   `used_percentage` and a `resets_at` epoch. These appear for Pro/Max accounts after the
   first response of a session.
+- The git branch isn't in the payload, so dashline reads it from `git` in
+  `workspace.current_dir` (one `rev-parse`), and shows the worktree name when that dir is
+  a linked worktree.
 
 The payload carries only those two windows, so there's no per-model weekly breakdown to
 show. Every field is optional; a missing one just drops its part of the line.
