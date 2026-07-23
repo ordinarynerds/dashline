@@ -7,6 +7,10 @@ without opening `/usage`.
 
 ![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
+<p align="center">
+  <a href="https://x.com/_ordinarynerds"><img src="https://img.shields.io/badge/Follow%20us%20on%20X-%40__ordinarynerds-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow @_ordinarynerds on X"></a>
+</p>
+
 ## Why
 
 Two things go wrong in a long Claude Code session:
