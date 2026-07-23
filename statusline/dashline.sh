@@ -21,15 +21,11 @@
 #   DASHLINE_USAGE_WARN  usage % yellow at/above this              (default 70)
 #   DASHLINE_USAGE_CRIT  usage % red at/above this                 (default 90)
 #   DASHLINE_USAGE       set to 0 to hide the right (usage) half   (default 1/on)
-#   DASHLINE_CANARY      set to 1 to append canary-cage.sh output  (default 0/off)
 #   DASHLINE_COLS        override terminal width for justification (default auto)
 #   DASHLINE_MARGIN      cols kept free at the right edge          (default 5)
 set -u
 
 input=$(cat 2>/dev/null)
-
-CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-CANARY="$CONFIG_DIR/scripts/canary-cage.sh"
 
 WARN=${DASHLINE_WARN:-40}
 COMPACT=${DASHLINE_COMPACT:-50}
@@ -37,7 +33,6 @@ WIDTH=${DASHLINE_WIDTH:-10}
 USAGE_WARN=${DASHLINE_USAGE_WARN:-70}
 USAGE_CRIT=${DASHLINE_USAGE_CRIT:-90}
 SHOW_USAGE=${DASHLINE_USAGE:-1}
-SHOW_CANARY=${DASHLINE_CANARY:-0}
 
 GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[1;31m'
 DIM=$'\033[2m'; BOLD=$'\033[1m'; RST=$'\033[0m'
@@ -148,16 +143,6 @@ case "$SHOW_USAGE" in
         seg="${seg}${DIM}All${RST} $(usagecolor "$wi")${wi}%${RST}"
       fi
       right="$seg"
-    fi
-    ;;
-esac
-
-# Canary (opt-in) rides on the right edge.
-case "$SHOW_CANARY" in
-  1|true|TRUE|yes|on)
-    if [ -x "$CANARY" ]; then
-      c=$(printf '%s' "$input" | "$CANARY" 2>/dev/null)
-      [ -n "$c" ] && { [ -n "$right" ] && right="$right   $c" || right="$c"; }
     fi
     ;;
 esac

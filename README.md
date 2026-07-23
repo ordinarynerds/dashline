@@ -100,7 +100,6 @@ picks up your environment, or edit the defaults at the top of `dashline.sh`.
 | `DASHLINE_USAGE_CRIT`   | `90`    | usage % turns red at/above this               |
 | `DASHLINE_MARGIN`       | `5`     | columns left free at the right edge           |
 | `DASHLINE_COLS`         | auto    | override terminal width for justification     |
-| `DASHLINE_CANARY`       | `0`     | set to `1` to append another status script    |
 
 If the right half ever gets cut off with a `…`, raise `DASHLINE_MARGIN`.
 
@@ -119,11 +118,6 @@ sync between releases.
 
 The payload carries only those two windows, so there's no per-model weekly breakdown to
 show. Every field is optional; a missing one just drops its part of the line.
-
-### Running alongside another status line
-
-If you already run a status-line script, set `DASHLINE_CANARY=1` and dashline will pass
-the same stdin to `~/.claude/scripts/canary-cage.sh` and append its output on the right.
 
 ## License
 
