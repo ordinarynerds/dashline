@@ -66,7 +66,7 @@ fixed gap.
 ## Reading it
 
 ```
-⎇ main  Opus 4.8 44% ████░░░░░░ (440k/1.0M) · high      session 61% (↻2h11m) · All 74%
+⎇ main · Opus 4.8 44% ████░░░░░░ (440k/1.0M) · high     session 61% (↻2h11m) · All 74%
 ```
 
 **Left: context window**

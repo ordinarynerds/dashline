@@ -149,7 +149,7 @@ fi
 
 # Git branch/worktree leads the left group, shell-prompt style (quiet styling).
 if [ -n "$gitseg" ]; then
-  left="${gitseg}  ${body}"
+  left="${gitseg}${DIM} · ${RST}${body}"
 else
   left="$body"
 fi
