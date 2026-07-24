@@ -189,13 +189,14 @@ Object-form keys that change what a widget shows rather than how. Combine them w
 | `icon`                    | label       | a glyph placed before the text                              |
 | `color`                   | any         | a fixed color (see below)                                   |
 | `bg`                      | text, label | a background color, for badges                              |
+| `bold`, `italic`, `underline` | any     | set `true` to add that text attribute, alongside any color  |
 | `variant`                 | any         | which presentation to draw                                  |
 
 ### Colors
 
 A color term is one or more of these words, so `"bold red"` is valid:
 
-`red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `black` · `white` · `dim` · `bold`
+`red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `black` · `white` · `dim` · `bold` · `italic` · `underline`
 
 A term can also be a hex value for 24-bit color: `"#4EC9D6"`, or `"#fff"` in shorthand.
 Mix it with attributes, so `"bold #4EC9D6"` works.

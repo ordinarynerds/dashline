@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { paint, sanitize, isStyle, setTheme } from '../src/style.ts'
+import { paint, sanitize, isStyle, setTheme, styleTerm } from '../src/style.ts'
 
 const ESC = String.fromCharCode(27)
 
@@ -32,6 +32,31 @@ test('unknown terms paint nothing', () => {
   assert.equal(paint('x', 'chartreuse'), 'x')
   assert.equal(isStyle('chartreuse'), false)
   assert.equal(isStyle('bold red'), true)
+})
+
+test('bold, italic, and underline map to their SGR attribute codes', () => {
+  assert.equal(paint('x', 'bold'), `${ESC}[1mx${ESC}[0m`)
+  assert.equal(paint('x', 'italic'), `${ESC}[3mx${ESC}[0m`)
+  assert.equal(paint('x', 'underline'), `${ESC}[4mx${ESC}[0m`)
+})
+
+test('a multi-word term folds color and attributes into one SGR', () => {
+  assert.equal(paint('x', 'cyan bold italic'), `${ESC}[36;1;3mx${ESC}[0m`)
+})
+
+test('styleTerm folds a color with the enabled attributes, color first', () => {
+  assert.equal(styleTerm('cyan', { bold: true }), 'cyan bold')
+  assert.equal(styleTerm('cyan', { bold: true, italic: true, underline: true }), 'cyan bold italic underline')
+  assert.equal(styleTerm('red', { italic: true }), 'red italic')
+  // attributes alone, no color
+  assert.equal(styleTerm(undefined, { underline: true }), 'underline')
+  // nothing to apply
+  assert.equal(styleTerm(undefined, {}), undefined)
+})
+
+test('a color folded with bold rides in one SGR group with the color', () => {
+  assert.equal(paint('x', styleTerm('cyan', { bold: true })), `${ESC}[36;1mx${ESC}[0m`)
+  assert.equal(paint('x', styleTerm('cyan', { bold: true, underline: true })), `${ESC}[36;1;4mx${ESC}[0m`)
 })
 
 test('sanitize removes control characters, including ESC and BEL', () => {

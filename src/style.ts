@@ -2,6 +2,8 @@ const CODES: Record<string, string> = {
   reset: '0',
   bold: '1',
   dim: '2',
+  italic: '3',
+  underline: '4',
   black: '30',
   red: '31',
   green: '32',
@@ -72,6 +74,22 @@ export function fill(text: string, bg: string): string {
 
 export function isStyle(term: string): boolean {
   return term.split(/\s+/).every((word) => codesFor(word) !== null)
+}
+
+// Fold an item's color and its boolean text attributes into one space-separated style term,
+// so `paint` emits them all in a single SGR and no attribute is lost to an inner reset. The
+// color leads, then bold, italic, underline in that order. Undefined when there is nothing
+// to apply, matching how callers already guard `paint`.
+export function styleTerm(
+  color: string | undefined,
+  opts: { bold?: boolean; italic?: boolean; underline?: boolean },
+): StyleTerm | undefined {
+  const words: string[] = []
+  if (color) words.push(color)
+  if (opts.bold) words.push('bold')
+  if (opts.italic) words.push('italic')
+  if (opts.underline) words.push('underline')
+  return words.length ? words.join(' ') : undefined
 }
 
 // A style word is a named color/attribute or a hex value like #4EC9D6 (or #fff).

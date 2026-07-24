@@ -1,6 +1,6 @@
 import type { Label } from '../datum.ts'
 import type { WidgetOpts } from '../widgets/types.ts'
-import { paint } from '../style.ts'
+import { paint, styleTerm } from '../style.ts'
 import { clip } from '../util/width.ts'
 import { basename } from 'node:path'
 
@@ -15,7 +15,8 @@ export function label(d: Label, opts: WidgetOpts): string {
   if (limit > 0) text = clip(text, limit) // width-aware and code-point safe
 
   const color = opts.color ?? d.color
-  const body = color || opts.bg ? paint(text, color, opts.bg) : text
+  const term = styleTerm(color, opts)
+  const body = term || opts.bg ? paint(text, term, opts.bg) : text
   const icon = opts.icon ?? d.icon
   return icon ? `${paint(icon, d.iconColor ?? 'dim')} ${body}` : body
 }

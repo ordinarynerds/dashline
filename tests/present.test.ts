@@ -2,10 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { percent } from '../src/present/percent.ts'
 import { label } from '../src/present/label.ts'
+import { duration, delta } from '../src/present/scalars.ts'
 import { gradientBar } from '../src/present/gradient.ts'
 import { visibleWidth, strip } from '../src/util/width.ts'
 import type { Ctx } from '../src/widgets/types.ts'
-import type { Percent, Label } from '../src/datum.ts'
+import type { Percent, Label, Duration, Delta } from '../src/datum.ts'
 
 const ctx: Ctx = {
   payload: {},
@@ -55,4 +56,45 @@ test('label: truncate as a number and icon override', () => {
   const d: Label = { kind: 'label', text: 'feature-branch-name' }
   assert.equal(strip(label(d, { truncate: 6 })), 'featu…')
   assert.equal(strip(label({ kind: 'label', text: 'main' }, { icon: '#' })), '# main')
+})
+
+test('label: bold, italic, and underline each emit their SGR attribute', () => {
+  const d: Label = { kind: 'label', text: 'main' }
+  assert.match(label(d, { bold: true }), /\[1m/)
+  assert.match(label(d, { italic: true }), /\[3m/)
+  assert.match(label(d, { underline: true }), /\[4m/)
+})
+
+test('label: an attribute rides in the same SGR group as the color', () => {
+  const d: Label = { kind: 'label', text: 'main' }
+  // cyan + bold -> both 36 and 1 in one escape, not two separate groups
+  assert.match(label(d, { color: 'cyan', bold: true }), /\[36;1m/)
+  // multiple attributes combine with the color
+  assert.match(label(d, { color: 'cyan', bold: true, underline: true }), /\[36;1;4m/)
+})
+
+test('duration: attributes combine with its default color', () => {
+  const d: Duration = { kind: 'duration', ms: 2_220_000 }
+  assert.match(duration(d, { italic: true }), /\[2;3m/) // dim default + italic
+})
+
+test('delta: attributes style every segment of the +added -removed pair', () => {
+  const d: Delta = { kind: 'delta', added: 5, removed: 2 }
+  const out = delta(d, { underline: true })
+  assert.match(out, /\[32;4m/) // +added, green + underline
+  assert.match(out, /\[31;4m/) // -removed, red + underline
+})
+
+test('percent: attributes fold into the number and the bar, colored per fill', () => {
+  const d: Percent = { kind: 'percent', value: 50, scale: 'usage' }
+  // number is already bold; underline joins the same SGR
+  assert.match(percent(d, { variant: 'pct', underline: true }, ctx), /\[1;32;4m/)
+  // the colored bar carries the attribute too
+  assert.match(percent(d, { variant: 'bar', underline: true }, ctx), /\[32;4m/)
+})
+
+test('gradient bar folds attributes into each cell so the whole bar stays styled', () => {
+  const b = gradientBar(60, 10, { underline: true })
+  assert.match(b, /38;2;\d+;\d+;\d+;4m/) // filled cell: truecolor + underline
+  assert.match(b, /\[0;2;4m░/) // empty cell: reset, dim, underline
 })

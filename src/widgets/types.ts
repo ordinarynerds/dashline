@@ -25,6 +25,9 @@ export interface WidgetOpts {
   bg?: string
   variant?: string
   bar?: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
   // data
   label?: string
   countdown?: boolean

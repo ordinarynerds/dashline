@@ -1,6 +1,6 @@
 import type { Percent } from "../datum.ts";
 import type { Ctx, WidgetOpts } from "../widgets/types.ts";
-import { paint } from "../style.ts";
+import { paint, styleTerm } from "../style.ts";
 import { bar, clampWidth } from "../util/bar.ts";
 import { gradientBar } from "./gradient.ts";
 import { human, countdown, spark } from "../util/format.ts";
@@ -10,11 +10,11 @@ const DEFAULT_WIDTH = 10;
 export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   const color = opts.color ?? fillColor(d, opts, ctx);
   const width = clampWidth(opts.width ?? DEFAULT_WIDTH);
-  const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
+  const number = paint(`${Math.round(d.value)}%`, styleTerm(`bold ${color}`, opts));
   const meter =
     opts.bar === "gradient"
-      ? gradientBar(d.value, width)
-      : paint(bar(d.value, width, opts.bar), color);
+      ? gradientBar(d.value, width, opts)
+      : paint(bar(d.value, width, opts.bar), styleTerm(color, opts));
 
   switch (opts.variant) {
     case "pct":
@@ -22,10 +22,10 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
     case "bar":
       return meter;
     case "gauge":
-      return paint(`▕${bar(d.value, width, opts.bar)}▏`, color);
+      return paint(`▕${bar(d.value, width, opts.bar)}▏`, styleTerm(color, opts));
     case "ratio":
       return d.tokens
-        ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color)
+        ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, styleTerm(color, opts))
         : number;
     case "tokens":
       return d.tokens ? paint(tokens(d), "dim") : number;

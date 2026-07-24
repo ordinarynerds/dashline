@@ -79,6 +79,9 @@
       "properties": {
         "color": { "type": "string", "description": "A named color, or a hex value like #4EC9D6." },
         "bg": { "type": "string", "description": "A background color, named or hex." },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "underline": { "type": "boolean" },
         "variant": { "type": "string" },
         "bar": { "enum": ["blocks", "shade", "line", "ascii", "fine", "gradient"] },
         "label": { "type": "string" },
