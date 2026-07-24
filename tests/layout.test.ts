@@ -14,9 +14,22 @@ test('left and right are justified to columns minus margin', () => {
   assert.ok(out.endsWith('R'))
 })
 
-test('narrow widths fall back to a fixed gap', () => {
+test('a line too wide to fit is clipped, never overflowed', () => {
   const out = compose('wide-left-side', '', 'wide-right-side', 10, 5)
-  assert.equal(strip(out), 'wide-left-side   wide-right-side')
+  assert.ok(visibleWidth(out) <= 5, `got width ${visibleWidth(out)}`)
+})
+
+test('when left and right cannot both fit, the right zone is kept and the left is clipped', () => {
+  const out = compose('a-very-long-left-zone', '', 'R', 20, 5)
+  assert.ok(visibleWidth(out) <= 15)
+  assert.ok(strip(out).endsWith('R'))
+  assert.ok(strip(out).includes('…'))
+})
+
+test('a long left-only line is clipped to the width', () => {
+  const out = compose('abcdefghijklmnop', '', '', 13, 5)
+  assert.ok(visibleWidth(out) <= 8)
+  assert.ok(strip(out).endsWith('…'))
 })
 
 test('center sits between left and right', () => {

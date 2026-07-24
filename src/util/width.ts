@@ -6,6 +6,37 @@ export function visibleWidth(text: string): number {
   return width
 }
 
+// Truncate to a visible column budget, keeping ANSI codes intact and adding an ellipsis.
+export function clip(text: string, width: number): string {
+  if (width <= 0) return ''
+  if (visibleWidth(text) <= width) return text
+  const budget = width - 1
+  let out = ''
+  let used = 0
+  let styled = false
+  for (let i = 0; i < text.length; ) {
+    if (text[i] === '\x1b') {
+      let end = text.indexOf('m', i)
+      if (end === -1) end = text.length - 1
+      const seq = text.slice(i, end + 1)
+      out += seq
+      const codes = seq.slice(2, seq.length - 1)
+      styled = codes !== '' && codes !== '0'
+      i = end + 1
+      continue
+    }
+    const cp = text.codePointAt(i)!
+    const w = charWidth(cp)
+    if (used + w > budget) break
+    out += String.fromCodePoint(cp)
+    used += w
+    i += String.fromCodePoint(cp).length
+  }
+  out += '…'
+  if (styled) out += '\x1b[0m'
+  return out
+}
+
 // Approximate terminal column width: 0 for combining and zero-width marks, 2 for East
 // Asian wide and fullwidth ranges and the main emoji blocks, 1 otherwise.
 function charWidth(cp: number): number {
