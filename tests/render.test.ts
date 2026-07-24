@@ -160,6 +160,12 @@ test('a { text } item takes a color and an empty one is dropped', () => {
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
 })
 
+test('an absurd bar width renders a bounded line rather than crashing or blanking', () => {
+  const out = run([[['context', { variant: 'bar', width: 100000000 }]]], ctx(full))
+  assert.equal(out.length, 1)
+  assert.ok(out[0]!.length > 0)
+})
+
 test('trend appends a direction arrow to context, read from history', () => {
   const c = ctx(full) // context is 44%
   c.history = [

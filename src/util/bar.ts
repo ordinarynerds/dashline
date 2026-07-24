@@ -14,8 +14,17 @@ const SETS: Record<string, Glyphs> = {
 
 const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉']
 
-export function bar(pct: number, width: number, style = 'blocks'): string {
+const MAX_WIDTH = 1000
+
+// Coerce a bar/gauge width to a sane integer. A negative or absurd value from a typo (or an
+// untrusted project config) would otherwise reach String.repeat and blank or hang the line.
+export function clampWidth(width: number): number {
+  return Math.max(0, Math.min(Math.floor(width) || 0, MAX_WIDTH))
+}
+
+export function bar(pct: number, rawWidth: number, style = 'blocks'): string {
   const ratio = Math.min(100, Math.max(0, pct)) / 100
+  const width = clampWidth(rawWidth)
 
   if (style === 'fine') return fine(ratio, width)
 

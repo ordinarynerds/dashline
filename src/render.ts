@@ -81,8 +81,12 @@ function renderItem(item: Item, ctx: Ctx, icons: boolean): string | null {
 
   if (icons && !opts.icon && ICONS[id]) opts = { ...opts, icon: ICONS[id] }
 
-  const datum = widget.data(ctx, opts)
-  if (!datum) return null
-  const out = present(datum, opts, ctx)
-  return out == null || out === '' ? null : out
+  try {
+    const datum = widget.data(ctx, opts)
+    if (!datum) return null
+    const out = present(datum, opts, ctx)
+    return out == null || out === '' ? null : out
+  } catch {
+    return null // a single bad item drops itself, not the whole line
+  }
 }

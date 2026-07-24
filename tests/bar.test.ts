@@ -34,6 +34,12 @@ test('out-of-range percentages clamp', () => {
   assert.equal(bar(150, 4, 'blocks'), '████')
 })
 
+test('bar clamps absurd or negative widths instead of reaching String.repeat', () => {
+  assert.equal(visibleWidth(bar(50, 1e9, 'blocks')), 1000) // capped, no huge allocation
+  assert.equal(bar(50, -5, 'blocks'), '') // floored to zero, no RangeError
+  assert.equal(visibleWidth(bar(50, 1e9, 'fine')), 1000)
+})
+
 test('fine stays exactly width cells across the whole range, never spilling a partial', () => {
   for (let p = 0; p <= 100; p += 0.1) {
     const b = bar(p, 10, 'fine')

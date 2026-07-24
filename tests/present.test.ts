@@ -25,6 +25,16 @@ test('gradient bar keeps its width and colors filled cells with truecolor', () =
   assert.match(b, /38;2;/)
 })
 
+test('gradient empty cells reset the foreground before dimming', () => {
+  assert.match(gradientBar(50, 10), /\[0;2m░/)
+})
+
+test('label truncate respects display width and does not split code points', () => {
+  assert.ok(visibleWidth(label({ kind: 'label', text: '你好世界' }, { truncate: 4 })) <= 4)
+  // whole emoji kept, not a split surrogate pair
+  assert.equal(label({ kind: 'label', text: '🎉🎉🎉' }, { truncate: 3 }), '🎉…')
+})
+
 test('percent: gradient bar variant is per-cell colored', () => {
   const d: Percent = { kind: 'percent', value: 70, scale: 'context' }
   assert.match(percent(d, { variant: 'bar', bar: 'gradient' }, ctx), /38;2;/)

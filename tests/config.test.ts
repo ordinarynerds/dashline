@@ -77,6 +77,34 @@ test('falls back to the default line when nothing configures it', () => {
   }
 })
 
+test('a hostile or malformed margin is clamped to a safe range', () => {
+  const home = mkdtempSync(join(tmpdir(), 'dl-home-'))
+  try {
+    writeSettings(home, { margin: -1_000_000_000, lines: [['model']] })
+    withHome(home, () => {
+      const cfg = loadConfig({})
+      assert.ok(cfg.margin >= 0 && cfg.margin <= 1000)
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('honors CLAUDE_CONFIG_DIR for the settings location', () => {
+  const cfgdir = mkdtempSync(join(tmpdir(), 'dl-cfg-'))
+  const prev = process.env.CLAUDE_CONFIG_DIR
+  process.env.CLAUDE_CONFIG_DIR = cfgdir
+  try {
+    writeFileSync(join(cfgdir, 'settings.json'), JSON.stringify({ dashline: { lines: [['branch', 'my-tool status']] } }))
+    const cfg = loadConfig({})
+    assert.deepEqual(cfg.lines, [['branch', 'my-tool status']]) // read, and trusted so the command stays
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_CONFIG_DIR
+    else process.env.CLAUDE_CONFIG_DIR = prev
+    rmSync(cfgdir, { recursive: true, force: true })
+  }
+})
+
 test('a non-array lines value falls back instead of crashing the renderer', () => {
   const home = mkdtempSync(join(tmpdir(), 'dl-home-'))
   try {

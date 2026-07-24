@@ -53,7 +53,7 @@ const DEFAULT_LINES: LineSpec[] = [
 export function loadConfig(payload: Payload): DashlineConfig {
   const project = payload.workspace?.project_dir ?? payload.workspace?.current_dir ?? payload.cwd
 
-  const home = join(homedir(), '.claude')
+  const home = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
   const trusted = new Set([join(home, 'settings.json'), join(home, 'settings.local.json')])
 
   const candidates = [
@@ -77,7 +77,16 @@ export function loadConfig(payload: Payload): DashlineConfig {
   let lines = Array.isArray(merged.lines) ? merged.lines : DEFAULT_LINES
   if (!linesTrusted) lines = lines.map(withoutCommands)
 
-  return { ...DEFAULTS, ...merged, lines }
+  // margin feeds String.repeat via the layout, so a bad or hostile value must be bounded.
+  const margin = clampInt(merged.margin, 0, 1000, DEFAULTS.margin)
+
+  return { ...DEFAULTS, ...merged, lines, margin }
+}
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(min, Math.min(Math.floor(value), max))
+    : fallback
 }
 
 // Commands only run from the user's own settings. Config that rides in through a

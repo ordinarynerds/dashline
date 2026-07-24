@@ -1,7 +1,7 @@
 import type { Percent } from "../datum.ts";
 import type { Ctx, WidgetOpts } from "../widgets/types.ts";
 import { paint } from "../style.ts";
-import { bar } from "../util/bar.ts";
+import { bar, clampWidth } from "../util/bar.ts";
 import { gradientBar } from "./gradient.ts";
 import { human, countdown } from "../util/format.ts";
 
@@ -9,7 +9,7 @@ const DEFAULT_WIDTH = 10;
 
 export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   const color = opts.color ?? fillColor(d, opts, ctx);
-  const width = opts.width ?? DEFAULT_WIDTH;
+  const width = clampWidth(opts.width ?? DEFAULT_WIDTH);
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
   const meter =
     opts.bar === "gradient"

@@ -34,18 +34,22 @@ export function sampleHistory(sessionId: string | undefined, ctx: number | null,
 
   const isNew = samples.length === 0
   const last = samples[samples.length - 1]
-  if (!last || now - last.t >= GAP) {
+  const appended = !last || now - last.t >= GAP
+  if (appended) {
     samples.push({ t: now, ctx, cost })
     if (samples.length > KEEP) samples.splice(0, samples.length - KEEP)
   }
 
-  try {
-    mkdirSync(dir, { recursive: true })
-    const tmp = `${file}.tmp`
-    writeFileSync(tmp, JSON.stringify(samples))
-    renameSync(tmp, file)
-    if (isNew) prune(dir, now) // sweep stale sessions once, when a new one starts
-  } catch {}
+  // Only touch disk when the sample list actually changed; a throttled render is a no-op.
+  if (appended) {
+    try {
+      mkdirSync(dir, { recursive: true })
+      const tmp = `${file}.tmp`
+      writeFileSync(tmp, JSON.stringify(samples))
+      renameSync(tmp, file)
+      if (isNew) prune(dir, now) // sweep stale sessions once, when a new one starts
+    } catch {}
+  }
 
   return samples
 }

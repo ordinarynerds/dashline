@@ -1,6 +1,7 @@
 import type { Label } from '../datum.ts'
 import type { WidgetOpts } from '../widgets/types.ts'
 import { paint } from '../style.ts'
+import { clip } from '../util/width.ts'
 import { basename } from 'node:path'
 
 export function label(d: Label, opts: WidgetOpts): string {
@@ -11,7 +12,7 @@ export function label(d: Label, opts: WidgetOpts): string {
   else if (v === 'lower') text = text.toLowerCase()
 
   const limit = opts.truncate ?? (v?.startsWith('truncate:') ? Number(v.slice('truncate:'.length)) : 0)
-  if (limit > 0 && text.length > limit) text = `${text.slice(0, limit - 1)}…`
+  if (limit > 0) text = clip(text, limit) // width-aware and code-point safe
 
   const color = opts.color ?? d.color
   const body = color || opts.bg ? paint(text, color, opts.bg) : text

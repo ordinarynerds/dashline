@@ -343,7 +343,7 @@ var DEFAULT_LINES = [
 ];
 function loadConfig(payload2) {
   const project = payload2.workspace?.project_dir ?? payload2.workspace?.current_dir ?? payload2.cwd;
-  const home = join(homedir2(), ".claude");
+  const home = process.env.CLAUDE_CONFIG_DIR ?? join(homedir2(), ".claude");
   const trusted = /* @__PURE__ */ new Set([join(home, "settings.json"), join(home, "settings.local.json")]);
   const candidates = [
     join(home, "settings.json"),
@@ -363,7 +363,11 @@ function loadConfig(payload2) {
   }
   let lines2 = Array.isArray(merged.lines) ? merged.lines : DEFAULT_LINES;
   if (!linesTrusted) lines2 = lines2.map(withoutCommands);
-  return { ...DEFAULTS, ...merged, lines: lines2 };
+  const margin = clampInt(merged.margin, 0, 1e3, DEFAULTS.margin);
+  return { ...DEFAULTS, ...merged, lines: lines2, margin };
+}
+function clampInt(value, min, max, fallback) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(Math.floor(value), max)) : fallback;
 }
 function withoutCommands(line) {
   if (Array.isArray(line)) return line.filter(keep);
@@ -483,17 +487,20 @@ function sampleHistory(sessionId, ctx2, cost2, now2) {
   }
   const isNew = samples.length === 0;
   const last = samples[samples.length - 1];
-  if (!last || now2 - last.t >= GAP) {
+  const appended = !last || now2 - last.t >= GAP;
+  if (appended) {
     samples.push({ t: now2, ctx: ctx2, cost: cost2 });
     if (samples.length > KEEP) samples.splice(0, samples.length - KEEP);
   }
-  try {
-    mkdirSync(dir2, { recursive: true });
-    const tmp = `${file}.tmp`;
-    writeFileSync(tmp, JSON.stringify(samples));
-    renameSync(tmp, file);
-    if (isNew) prune(dir2, now2);
-  } catch {
+  if (appended) {
+    try {
+      mkdirSync(dir2, { recursive: true });
+      const tmp = `${file}.tmp`;
+      writeFileSync(tmp, JSON.stringify(samples));
+      renameSync(tmp, file);
+      if (isNew) prune(dir2, now2);
+    } catch {
+    }
   }
   return samples;
 }
@@ -655,8 +662,13 @@ var SETS = {
   ascii: { full: "#", empty: "-", wrap: ["[", "]"] }
 };
 var EIGHTHS = ["", "\u258F", "\u258E", "\u258D", "\u258C", "\u258B", "\u258A", "\u2589"];
-function bar(pct, width, style = "blocks") {
+var MAX_WIDTH = 1e3;
+function clampWidth(width) {
+  return Math.max(0, Math.min(Math.floor(width) || 0, MAX_WIDTH));
+}
+function bar(pct, rawWidth, style = "blocks") {
   const ratio = Math.min(100, Math.max(0, pct)) / 100;
+  const width = clampWidth(rawWidth);
   if (style === "fine") return fine(ratio, width);
   const set = SETS[style] ?? SETS.blocks;
   const inner = set.wrap ? Math.max(0, width - 2) : width;
@@ -678,7 +690,8 @@ var barStyles = [...Object.keys(SETS), "fine"];
 var GREEN = [53, 209, 59];
 var YELLOW = [229, 185, 58];
 var RED = [255, 85, 85];
-function gradientBar(value, width) {
+function gradientBar(value, rawWidth) {
+  const width = clampWidth(rawWidth);
   const ratio = Math.min(100, Math.max(0, value)) / 100;
   const filled = Math.round(ratio * width);
   let out = "";
@@ -687,7 +700,7 @@ function gradientBar(value, width) {
       const [r, g, b] = ramp(width === 1 ? 1 : i / (width - 1));
       out += `\x1B[38;2;${r};${g};${b}m\u2588`;
     } else {
-      out += "\x1B[2m\u2591";
+      out += "\x1B[0;2m\u2591";
     }
   }
   return `${out}\x1B[0m`;
@@ -707,7 +720,7 @@ function lerp(a, b, t) {
 var DEFAULT_WIDTH = 10;
 function percent(d, opts, ctx2) {
   const color = opts.color ?? fillColor(d, opts, ctx2);
-  const width = opts.width ?? DEFAULT_WIDTH;
+  const width = clampWidth(opts.width ?? DEFAULT_WIDTH);
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
   const meter = opts.bar === "gradient" ? gradientBar(d.value, width) : paint(bar(d.value, width, opts.bar), color);
   switch (opts.variant) {
@@ -792,40 +805,6 @@ function flag(d, opts) {
   return d.on ? paint(d.label, opts.color ?? "yellow") : null;
 }
 
-// src/present/label.ts
-import { basename as basename2 } from "node:path";
-function label(d, opts) {
-  let text = d.text;
-  const v = opts.variant;
-  if (v === "basename") text = basename2(text);
-  else if (v === "upper") text = text.toUpperCase();
-  else if (v === "lower") text = text.toLowerCase();
-  const limit = opts.truncate ?? (v?.startsWith("truncate:") ? Number(v.slice("truncate:".length)) : 0);
-  if (limit > 0 && text.length > limit) text = `${text.slice(0, limit - 1)}\u2026`;
-  const color = opts.color ?? d.color;
-  const body = color || opts.bg ? paint(text, color, opts.bg) : text;
-  const icon = opts.icon ?? d.icon;
-  return icon ? `${paint(icon, d.iconColor ?? "dim")} ${body}` : body;
-}
-
-// src/present/index.ts
-function present(datum, opts, ctx2) {
-  switch (datum.kind) {
-    case "percent":
-      return percent(datum, opts, ctx2);
-    case "duration":
-      return duration3(datum, opts);
-    case "money":
-      return money(datum, opts);
-    case "delta":
-      return delta(datum, opts);
-    case "label":
-      return label(datum, opts);
-    case "flag":
-      return flag(datum, opts);
-  }
-}
-
 // src/util/width.ts
 var ANSI = /\x1b\[[0-9;]*m/g;
 function visibleWidth(text) {
@@ -868,6 +847,40 @@ function charWidth(cp) {
   if (cp >= 4352 && cp <= 4447 || cp >= 11904 && cp <= 12350 || cp >= 12353 && cp <= 13311 || cp >= 13312 && cp <= 19903 || cp >= 19968 && cp <= 40959 || cp >= 40960 && cp <= 42191 || cp >= 44032 && cp <= 55203 || cp >= 63744 && cp <= 64255 || cp >= 65072 && cp <= 65103 || cp >= 65280 && cp <= 65376 || cp >= 65504 && cp <= 65510 || cp >= 127744 && cp <= 129791 || cp >= 131072 && cp <= 262141)
     return 2;
   return 1;
+}
+
+// src/present/label.ts
+import { basename as basename2 } from "node:path";
+function label(d, opts) {
+  let text = d.text;
+  const v = opts.variant;
+  if (v === "basename") text = basename2(text);
+  else if (v === "upper") text = text.toUpperCase();
+  else if (v === "lower") text = text.toLowerCase();
+  const limit = opts.truncate ?? (v?.startsWith("truncate:") ? Number(v.slice("truncate:".length)) : 0);
+  if (limit > 0) text = clip(text, limit);
+  const color = opts.color ?? d.color;
+  const body = color || opts.bg ? paint(text, color, opts.bg) : text;
+  const icon = opts.icon ?? d.icon;
+  return icon ? `${paint(icon, d.iconColor ?? "dim")} ${body}` : body;
+}
+
+// src/present/index.ts
+function present(datum, opts, ctx2) {
+  switch (datum.kind) {
+    case "percent":
+      return percent(datum, opts, ctx2);
+    case "duration":
+      return duration3(datum, opts);
+    case "money":
+      return money(datum, opts);
+    case "delta":
+      return delta(datum, opts);
+    case "label":
+      return label(datum, opts);
+    case "flag":
+      return flag(datum, opts);
+  }
 }
 
 // src/layout.ts
@@ -985,10 +998,14 @@ function renderItem(item, ctx2, icons) {
   const widget = registry[id];
   if (!widget) return ctx2.commands?.get(id) ?? null;
   if (icons && !opts.icon && ICONS[id]) opts = { ...opts, icon: ICONS[id] };
-  const datum = widget.data(ctx2, opts);
-  if (!datum) return null;
-  const out = present(datum, opts, ctx2);
-  return out == null || out === "" ? null : out;
+  try {
+    const datum = widget.data(ctx2, opts);
+    if (!datum) return null;
+    const out = present(datum, opts, ctx2);
+    return out == null || out === "" ? null : out;
+  } catch {
+    return null;
+  }
 }
 
 // src/index.ts
