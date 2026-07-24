@@ -182,6 +182,7 @@ Object-form keys that change what a widget shows rather than how. Combine them w
 | `label`                   | percent | rename the prefix, such as `session` to `5h`               |
 | `countdown`               | percent | set `false` to drop the reset countdown                    |
 | `warningAt`, `criticalAt` | percent | color thresholds for this item, overriding the global ones |
+| `trend`                   | percent | append a ↑/↓/→ arrow for context, read from session history |
 | `width`                   | percent | bar width in columns                                       |
 | `bar`                     | percent | bar glyph style (see [bar styles](#bar-styles))            |
 | `truncate`                | label   | shorten the text to N characters with an ellipsis          |
@@ -217,6 +218,7 @@ stays the same width whichever you pick.
 | `line`             | `━━━━──────` | thin                                |
 | `ascii`            | `[###-----]` | brackets counted inside the width   |
 | `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+| `gradient`         | `██████░░░░` | filled cells ramp green to red by position (truecolor) |
 
 ### Config keys
 
@@ -227,6 +229,8 @@ Alongside `lines`, the `dashline` object takes:
 | `separator`         | `·`     | drawn dim between items in a zone                             |
 | `margin`            | `5`     | columns kept free at the right edge                           |
 | `powerline`         | `false` | draw each zone as arrow-joined segments (needs a Nerd Font)   |
+| `theme`             | `""`    | recolor named colors from a palette: `nord`, `dracula`, `gruvbox`, `catppuccin` |
+| `icons`             | `false` | prefix label widgets with a Nerd Font glyph                   |
 | `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                 |
 | `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this % |
 | `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                     |

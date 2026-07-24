@@ -331,6 +331,8 @@ var DEFAULTS = {
   separator: "\xB7",
   margin: 5,
   powerline: false,
+  theme: "",
+  icons: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,
@@ -435,6 +437,7 @@ function scan(lines2) {
     for (const items of [zones.left, zones.center, zones.right]) {
       if (!items) continue;
       for (const item of items) {
+        if (Array.isArray(item) && typeof item[1] === "object" && item[1].trend) usesHistory2 = true;
         const id = itemId(item);
         if (id === null) continue;
         if (widgetNames.has(id)) {
@@ -456,51 +459,66 @@ function itemId(item) {
 }
 
 // src/state.ts
-import { readFileSync as readFileSync2, writeFileSync, renameSync } from "node:fs";
+import { readFileSync as readFileSync2, writeFileSync, renameSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { join as join2 } from "node:path";
 var GAP = 5;
 var KEEP = 60;
 var MAX_SESSIONS = 20;
 var SESSION_TTL = 6 * 3600;
-function statePath() {
-  const dir2 = process.env.CLAUDE_CONFIG_DIR ?? join2(homedir3(), ".claude");
-  return join2(dir2, "dashline-state.json");
+function stateDir() {
+  const base = process.env.CLAUDE_CONFIG_DIR ?? join2(homedir3(), ".claude");
+  return join2(base, "dashline-state");
 }
 function sampleHistory(sessionId, ctx2, cost2, now2) {
-  if (!sessionId) return [];
-  const path = statePath();
-  let store = {};
+  const id = (sessionId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!id) return [];
+  const dir2 = stateDir();
+  const file = join2(dir2, `${id}.json`);
+  let samples = [];
   try {
-    const parsed = JSON.parse(readFileSync2(path, "utf8"));
-    if (parsed && typeof parsed === "object") store = parsed;
+    const parsed = JSON.parse(readFileSync2(file, "utf8"));
+    if (Array.isArray(parsed)) samples = parsed;
   } catch {
   }
-  const samples = Array.isArray(store[sessionId]) ? store[sessionId] : [];
+  const isNew = samples.length === 0;
   const last = samples[samples.length - 1];
   if (!last || now2 - last.t >= GAP) {
     samples.push({ t: now2, ctx: ctx2, cost: cost2 });
     if (samples.length > KEEP) samples.splice(0, samples.length - KEEP);
   }
-  store[sessionId] = samples;
-  prune(store, now2);
   try {
-    const tmp = `${path}.tmp`;
-    writeFileSync(tmp, JSON.stringify(store));
-    renameSync(tmp, path);
+    mkdirSync(dir2, { recursive: true });
+    const tmp = `${file}.tmp`;
+    writeFileSync(tmp, JSON.stringify(samples));
+    renameSync(tmp, file);
+    if (isNew) prune(dir2, now2);
   } catch {
   }
   return samples;
 }
-function prune(store, now2) {
-  for (const id of Object.keys(store)) {
-    const s = store[id];
-    const last = s[s.length - 1];
-    if (!last || now2 - last.t > SESSION_TTL) delete store[id];
+function prune(dir2, now2) {
+  let files;
+  try {
+    files = readdirSync(dir2).filter((f) => f.endsWith(".json"));
+  } catch {
+    return;
   }
-  const ids = Object.keys(store);
-  if (ids.length > MAX_SESSIONS) {
-    ids.map((id) => [id, store[id][store[id].length - 1]?.t ?? 0]).sort((a, b) => a[1] - b[1]).slice(0, ids.length - MAX_SESSIONS).forEach(([id]) => delete store[id]);
+  const alive = [];
+  for (const f of files) {
+    const path = join2(dir2, f);
+    try {
+      const parsed = JSON.parse(readFileSync2(path, "utf8"));
+      const samples = Array.isArray(parsed) ? parsed : [];
+      const last = samples[samples.length - 1];
+      if (!last || now2 - last.t > SESSION_TTL) rmSync(path, { force: true });
+      else alive.push({ path, t: last.t });
+    } catch {
+      rmSync(path, { force: true });
+    }
+  }
+  if (alive.length > MAX_SESSIONS) {
+    alive.sort((a, b) => a.t - b.t).slice(0, alive.length - MAX_SESSIONS).forEach((x) => rmSync(x.path, { force: true }));
   }
 }
 
@@ -568,6 +586,16 @@ var CODES = {
   white: "37",
   gray: "90"
 };
+var THEMES = {
+  nord: { red: "#BF616A", green: "#A3BE8C", yellow: "#EBCB8B", blue: "#81A1C1", magenta: "#B48EAD", cyan: "#88C0D0", gray: "#4C566A", black: "#2E3440", white: "#ECEFF4" },
+  dracula: { red: "#FF5555", green: "#50FA7B", yellow: "#F1FA8C", blue: "#6272A4", magenta: "#FF79C6", cyan: "#8BE9FD", gray: "#6272A4", black: "#282A36", white: "#F8F8F2" },
+  gruvbox: { red: "#CC241D", green: "#98971A", yellow: "#D79921", blue: "#458588", magenta: "#B16286", cyan: "#689D6A", gray: "#928374", black: "#282828", white: "#EBDBB2" },
+  catppuccin: { red: "#F38BA8", green: "#A6E3A1", yellow: "#F9E2AF", blue: "#89B4FA", magenta: "#CBA6F7", cyan: "#94E2D5", gray: "#6C7086", black: "#1E1E2E", white: "#CDD6F4" }
+};
+var activeTheme = null;
+function setTheme(name2) {
+  activeTheme = name2 && THEMES[name2] ? THEMES[name2] : null;
+}
 var RESET = "\x1B[0m";
 var CONTROL = /[\x00-\x1f\x7f]/g;
 function paint(text, term, bg) {
@@ -582,7 +610,7 @@ function paint(text, term, bg) {
   return `\x1B[${codes.join(";")}m${text}${RESET}`;
 }
 function bgCode(word) {
-  const rgb = hex(word);
+  const rgb = themedHex(word);
   if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
   const fg = CODES[word];
   return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null;
@@ -600,9 +628,13 @@ function isStyle(term) {
   return term.split(/\s+/).every((word) => codesFor(word) !== null);
 }
 function codesFor(word) {
-  if (word in CODES) return CODES[word];
-  const rgb = hex(word);
-  return rgb ? `38;2;${rgb[0]};${rgb[1]};${rgb[2]}` : null;
+  const rgb = themedHex(word);
+  if (rgb) return `38;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
+  return word in CODES ? CODES[word] : null;
+}
+function themedHex(word) {
+  const themed = activeTheme ? activeTheme[word] : void 0;
+  return hex(themed ?? word);
 }
 function hex(word) {
   if (!word.startsWith("#")) return null;
@@ -642,13 +674,42 @@ function fine(ratio, width) {
 }
 var barStyles = [...Object.keys(SETS), "fine"];
 
+// src/present/gradient.ts
+var GREEN = [53, 209, 59];
+var YELLOW = [229, 185, 58];
+var RED = [255, 85, 85];
+function gradientBar(value, width) {
+  const ratio = Math.min(100, Math.max(0, value)) / 100;
+  const filled = Math.round(ratio * width);
+  let out = "";
+  for (let i = 0; i < width; i++) {
+    if (i < filled) {
+      const [r, g, b] = ramp(width === 1 ? 1 : i / (width - 1));
+      out += `\x1B[38;2;${r};${g};${b}m\u2588`;
+    } else {
+      out += "\x1B[2m\u2591";
+    }
+  }
+  return `${out}\x1B[0m`;
+}
+function ramp(f) {
+  return f <= 0.5 ? lerp(GREEN, YELLOW, f / 0.5) : lerp(YELLOW, RED, (f - 0.5) / 0.5);
+}
+function lerp(a, b, t) {
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t)
+  ];
+}
+
 // src/present/percent.ts
 var DEFAULT_WIDTH = 10;
 function percent(d, opts, ctx2) {
   const color = opts.color ?? fillColor(d, opts, ctx2);
   const width = opts.width ?? DEFAULT_WIDTH;
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
-  const meter = paint(bar(d.value, width, opts.bar), color);
+  const meter = opts.bar === "gradient" ? gradientBar(d.value, width) : paint(bar(d.value, width, opts.bar), color);
   switch (opts.variant) {
     case "pct":
       return number;
@@ -665,6 +726,10 @@ function percent(d, opts, ctx2) {
   const parts = [];
   if (label2) parts.push(paint(label2, "dim"));
   parts.push(number);
+  if (opts.trend && d.scale === "context") {
+    const arrow = trendArrow(ctx2, d.value);
+    if (arrow) parts.push(arrow);
+  }
   if (d.defaultBar || opts.bar) parts.push(meter);
   if (d.tokens) parts.push(paint(tokens(d), "dim"));
   if (d.hint && d.value >= ctx2.thresholds.critical) {
@@ -680,6 +745,15 @@ function percent(d, opts, ctx2) {
 }
 function tokens(d) {
   return `(${human(d.tokens.used)}/${human(d.tokens.size)})`;
+}
+function trendArrow(ctx2, current) {
+  const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
+  if (values.length < 3) return null;
+  const prev = values[Math.max(0, values.length - 6)];
+  const delta2 = current - prev;
+  if (delta2 > 1) return paint("\u2191", "yellow");
+  if (delta2 < -1) return paint("\u2193", "green");
+  return paint("\u2192", "dim");
 }
 function fillColor(d, opts, ctx2) {
   const t = ctx2.thresholds;
@@ -822,24 +896,50 @@ function leftRight(left, lw, right, rw, target) {
 }
 
 // src/powerline.ts
-var ARROW = String.fromCodePoint(57520);
+var ARROW_RIGHT = String.fromCodePoint(57520);
+var ARROW_LEFT = String.fromCodePoint(57522);
 var AUTO_BG = ["#3b3b3b", "#2f2f2f"];
-function powerlineZone(segs) {
+function powerlineZone(segs, direction = "left") {
   const resolved2 = segs.map((s, i) => ({
     text: s.text,
     bg: s.bg ?? bgCode(AUTO_BG[i % AUTO_BG.length])
   }));
   let out = "";
+  if (direction === "right") {
+    resolved2.forEach((s, i) => {
+      const prev = resolved2[i - 1];
+      const fg = bgToFg(s.bg);
+      out += prev ? `\x1B[${fg};${prev.bg}m${ARROW_LEFT}\x1B[0m` : `\x1B[${fg}m${ARROW_LEFT}\x1B[0m`;
+      out += fill(` ${s.text} `, s.bg);
+    });
+    return out;
+  }
   resolved2.forEach((s, i) => {
     out += fill(` ${s.text} `, s.bg);
     const next = resolved2[i + 1];
     const fg = bgToFg(s.bg);
-    out += next ? `\x1B[${fg};${next.bg}m${ARROW}\x1B[0m` : `\x1B[${fg}m${ARROW}\x1B[0m`;
+    out += next ? `\x1B[${fg};${next.bg}m${ARROW_RIGHT}\x1B[0m` : `\x1B[${fg}m${ARROW_RIGHT}\x1B[0m`;
   });
   return out;
 }
 
 // src/render.ts
+var ICONS = Object.fromEntries(
+  [
+    ["branch", 57504],
+    ["model", 61671],
+    ["cwd", 61563],
+    ["repo", 62465],
+    ["pr", 62471],
+    ["review", 62471],
+    ["worktree", 61883],
+    ["version", 61483],
+    ["name", 62145],
+    ["effort", 61668],
+    ["output", 61459],
+    ["cost", 61781]
+  ].map(([id, cp]) => [id, String.fromCodePoint(cp)])
+);
 function render(config2, ctx2, columns2) {
   const sep = ` ${paint(sanitize(config2.separator), "dim")} `;
   const out = [];
@@ -851,39 +951,40 @@ function render(config2, ctx2, columns2) {
 }
 function renderLine(line, ctx2, config2, columns2, sep) {
   const zones = Array.isArray(line) ? { left: line } : line;
-  const left = renderZone(zones.left, ctx2, sep, config2.powerline);
-  const center = renderZone(zones.center, ctx2, sep, config2.powerline);
-  const right = renderZone(zones.right, ctx2, sep, config2.powerline);
+  const left = renderZone(zones.left, ctx2, sep, config2, "left");
+  const center = renderZone(zones.center, ctx2, sep, config2, "left");
+  const right = renderZone(zones.right, ctx2, sep, config2, "right");
   if (!left && !center && !right) return null;
   return compose(left, center, right, columns2, config2.margin);
 }
-function renderZone(items, ctx2, sep, powerline) {
+function renderZone(items, ctx2, sep, config2, direction) {
   if (!items) return "";
   const segs = [];
   for (const item of items) {
-    const text = renderItem(item, ctx2);
+    const text = renderItem(item, ctx2, config2.icons);
     if (!text) continue;
     const word = itemBg(item);
     segs.push({ text, bg: word ? bgCode(word) : null });
   }
   if (segs.length === 0) return "";
-  return powerline ? powerlineZone(segs) : segs.map((s) => s.text).join(sep);
+  return config2.powerline ? powerlineZone(segs, direction) : segs.map((s) => s.text).join(sep);
 }
 function itemBg(item) {
   if (typeof item === "string") return void 0;
   if (Array.isArray(item)) return typeof item[1] === "object" ? item[1].bg : void 0;
   return item.bg;
 }
-function renderItem(item, ctx2) {
+function renderItem(item, ctx2, icons) {
   if (typeof item === "object" && !Array.isArray(item)) {
     if (!item.text) return null;
     const text = sanitize(item.text);
     return item.color || item.bg ? paint(text, item.color, item.bg) : text;
   }
   const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
-  const opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
+  let opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
   const widget = registry[id];
   if (!widget) return ctx2.commands?.get(id) ?? null;
+  if (icons && !opts.icon && ICONS[id]) opts = { ...opts, icon: ICONS[id] };
   const datum = widget.data(ctx2, opts);
   if (!datum) return null;
   const out = present(datum, opts, ctx2);
@@ -894,6 +995,7 @@ function renderItem(item, ctx2) {
 var raw = await readStdin();
 var payload = parsePayload(raw);
 var config = loadConfig(payload);
+setTheme(config.theme);
 var dir = payload.workspace?.current_dir ?? payload.cwd;
 var { commands, usesGit, usesHistory } = scan(config.lines);
 var now = Math.floor(Date.now() / 1e3);

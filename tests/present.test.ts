@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { percent } from '../src/present/percent.ts'
 import { label } from '../src/present/label.ts'
+import { gradientBar } from '../src/present/gradient.ts'
 import { visibleWidth, strip } from '../src/util/width.ts'
 import type { Ctx } from '../src/widgets/types.ts'
 import type { Percent, Label } from '../src/datum.ts'
@@ -16,6 +17,17 @@ const ctx: Ctx = {
 test('percent: per-item bar width', () => {
   const d: Percent = { kind: 'percent', value: 50, scale: 'usage' }
   assert.equal(visibleWidth(percent(d, { variant: 'bar', width: 16 }, ctx)), 16)
+})
+
+test('gradient bar keeps its width and colors filled cells with truecolor', () => {
+  const b = gradientBar(60, 10)
+  assert.equal(visibleWidth(b), 10)
+  assert.match(b, /38;2;/)
+})
+
+test('percent: gradient bar variant is per-cell colored', () => {
+  const d: Percent = { kind: 'percent', value: 70, scale: 'context' }
+  assert.match(percent(d, { variant: 'bar', bar: 'gradient' }, ctx), /38;2;/)
 })
 
 test('percent: per-item warn/crit override the color', () => {

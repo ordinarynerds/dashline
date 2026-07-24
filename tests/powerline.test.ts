@@ -4,6 +4,13 @@ import { powerlineZone } from '../src/powerline.ts'
 import { strip, visibleWidth } from '../src/util/width.ts'
 
 const ARROW = String.fromCodePoint(0xe0b0)
+const ARROW_LEFT = String.fromCodePoint(0xe0b2)
+
+test('the right direction uses the reverse arrow before each segment', () => {
+  const bare = strip(powerlineZone([{ text: 'a', bg: null }, { text: 'b', bg: null }], 'right'))
+  assert.equal([...bare].filter((c) => c === ARROW_LEFT).length, 2)
+  assert.ok(!bare.includes(ARROW))
+})
 
 test('pads each segment and joins them with the arrow glyph', () => {
   const bare = strip(powerlineZone([{ text: 'main', bg: null }, { text: 'Opus', bg: null }]))

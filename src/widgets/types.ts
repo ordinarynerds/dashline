@@ -34,6 +34,7 @@ export interface WidgetOpts {
   truncate?: number
   icon?: string
   id?: boolean
+  trend?: boolean
 }
 
 export interface Widget {

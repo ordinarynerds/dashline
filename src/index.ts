@@ -5,12 +5,14 @@ import { scan } from './scan.ts'
 import { sampleHistory } from './state.ts'
 import { contextPercent } from './widgets/context.ts'
 import { runCommand } from './widgets/command.ts'
+import { setTheme } from './style.ts'
 import { render } from './render.ts'
 import type { Ctx } from './widgets/types.ts'
 
 const raw = await readStdin()
 const payload = parsePayload(raw)
 const config = loadConfig(payload)
+setTheme(config.theme)
 const dir = payload.workspace?.current_dir ?? payload.cwd
 const { commands, usesGit, usesHistory } = scan(config.lines)
 const now = Math.floor(Date.now() / 1000)

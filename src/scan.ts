@@ -23,6 +23,7 @@ export function scan(lines: LineSpec[]): Scan {
     for (const items of [zones.left, zones.center, zones.right]) {
       if (!items) continue
       for (const item of items) {
+        if (Array.isArray(item) && typeof item[1] === 'object' && item[1].trend) usesHistory = true
         const id = itemId(item)
         if (id === null) continue
         if (widgetNames.has(id)) {

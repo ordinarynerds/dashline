@@ -20,6 +20,8 @@
         "separator": { "type": "string", "description": "Drawn dim between items in a zone." },
         "margin": { "type": "number", "description": "Columns kept free at the right edge." },
         "powerline": { "type": "boolean", "description": "Draw each zone as arrow-joined powerline segments. Needs a Nerd Font." },
+        "theme": { "enum": ["", "nord", "dracula", "gruvbox", "catppuccin"], "description": "Recolor named colors from a palette." },
+        "icons": { "type": "boolean", "description": "Prefix label widgets with a Nerd Font glyph." },
         "contextWarningAt": { "type": "number" },
         "contextCriticalAt": { "type": "number" },
         "usageWarningAt": { "type": "number" },
@@ -78,7 +80,7 @@
         "color": { "type": "string", "description": "A named color, or a hex value like #4EC9D6." },
         "bg": { "type": "string", "description": "A background color, named or hex." },
         "variant": { "type": "string" },
-        "bar": { "enum": ["blocks", "shade", "line", "ascii", "fine"] },
+        "bar": { "enum": ["blocks", "shade", "line", "ascii", "fine", "gradient"] },
         "label": { "type": "string" },
         "countdown": { "type": "boolean" },
         "warningAt": { "type": "number" },
@@ -86,7 +88,8 @@
         "width": { "type": "number" },
         "truncate": { "type": "number" },
         "icon": { "type": "string" },
-        "id": { "type": "boolean" }
+        "id": { "type": "boolean" },
+        "trend": { "type": "boolean" }
       }
     }
   }

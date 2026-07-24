@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { render } from '../src/render.ts'
+import { setTheme } from '../src/style.ts'
 import { strip } from '../src/util/width.ts'
 import type { DashlineConfig, LineSpec } from '../src/config.ts'
 import type { Ctx } from '../src/widgets/types.ts'
@@ -10,6 +11,8 @@ const base: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
   powerline: false,
+  theme: '',
+  icons: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,
@@ -155,6 +158,33 @@ test('a { text } item renders literal text alongside widgets', () => {
 test('a { text } item takes a color and an empty one is dropped', () => {
   assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /\[31m/)
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
+})
+
+test('trend appends a direction arrow to context, read from history', () => {
+  const c = ctx(full) // context is 44%
+  c.history = [
+    { t: 0, ctx: 10, cost: null },
+    { t: 5, ctx: 20, cost: null },
+    { t: 10, ctx: 30, cost: null },
+  ]
+  assert.match(run([[['context', { trend: true }]]], c)[0]!, /↑/)
+})
+
+test('icons: true adds a default glyph to label widgets', () => {
+  const branchIcon = String.fromCodePoint(0xe0a0)
+  const out = render({ ...base, icons: true, lines: [['branch']] }, ctx(full, 'main'), 80)
+  assert.ok(strip(out[0]!).includes(branchIcon))
+})
+
+test('theme recolors named widget colors', () => {
+  // nord cyan is #88C0D0 -> 136;192;208; branch defaults to cyan
+  setTheme('nord')
+  try {
+    const out = render({ ...base, theme: 'nord', lines: [['branch']] }, ctx(full, 'main'), 80)
+    assert.match(out[0]!, /38;2;136;192;208/)
+  } finally {
+    setTheme(undefined)
+  }
 })
 
 test('sparkline draws a block graph from context history', () => {

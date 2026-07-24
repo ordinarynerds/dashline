@@ -26,6 +26,8 @@ export interface DashlineConfig {
   separator: string
   margin: number
   powerline: boolean
+  theme: string
+  icons: boolean
   contextWarningAt: number
   contextCriticalAt: number
   usageWarningAt: number
@@ -36,6 +38,8 @@ const DEFAULTS: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
   powerline: false,
+  theme: '',
+  icons: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,

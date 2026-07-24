@@ -1,8 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { paint, sanitize, isStyle } from '../src/style.ts'
+import { paint, sanitize, isStyle, setTheme } from '../src/style.ts'
 
 const ESC = String.fromCharCode(27)
+
+test('a theme remaps named colors to hex, and clears back to defaults', () => {
+  setTheme('nord')
+  assert.equal(paint('x', 'cyan'), `${ESC}[38;2;136;192;208mx${ESC}[0m`) // nord cyan #88C0D0
+  setTheme(undefined)
+  assert.equal(paint('x', 'cyan'), `${ESC}[36mx${ESC}[0m`)
+})
 
 test('named colors map to SGR codes and bold composes', () => {
   assert.equal(paint('x', 'red'), `${ESC}[31mx${ESC}[0m`)

@@ -13,6 +13,21 @@ const CODES: Record<string, string> = {
   gray: '90',
 }
 
+// Named palettes. A theme remaps the color words to hex, so the whole line recolors from
+// one cohesive scheme. Set once at startup; attributes (bold, dim) are never themed.
+const THEMES: Record<string, Record<string, string>> = {
+  nord: { red: '#BF616A', green: '#A3BE8C', yellow: '#EBCB8B', blue: '#81A1C1', magenta: '#B48EAD', cyan: '#88C0D0', gray: '#4C566A', black: '#2E3440', white: '#ECEFF4' },
+  dracula: { red: '#FF5555', green: '#50FA7B', yellow: '#F1FA8C', blue: '#6272A4', magenta: '#FF79C6', cyan: '#8BE9FD', gray: '#6272A4', black: '#282A36', white: '#F8F8F2' },
+  gruvbox: { red: '#CC241D', green: '#98971A', yellow: '#D79921', blue: '#458588', magenta: '#B16286', cyan: '#689D6A', gray: '#928374', black: '#282828', white: '#EBDBB2' },
+  catppuccin: { red: '#F38BA8', green: '#A6E3A1', yellow: '#F9E2AF', blue: '#89B4FA', magenta: '#CBA6F7', cyan: '#94E2D5', gray: '#6C7086', black: '#1E1E2E', white: '#CDD6F4' },
+}
+
+let activeTheme: Record<string, string> | null = null
+
+export function setTheme(name: string | undefined): void {
+  activeTheme = name && THEMES[name] ? THEMES[name]! : null
+}
+
 const RESET = '\x1b[0m'
 
 export type StyleTerm = string
@@ -35,7 +50,7 @@ export function paint(text: string, term?: StyleTerm, bg?: string): string {
 
 // A background color: a hex value or one of the named colors (not the attributes).
 export function bgCode(word: string): string | null {
-  const rgb = hex(word)
+  const rgb = themedHex(word)
   if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`
   const fg = CODES[word]
   return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null
@@ -61,9 +76,16 @@ export function isStyle(term: string): boolean {
 
 // A style word is a named color/attribute or a hex value like #4EC9D6 (or #fff).
 function codesFor(word: string): string | null {
-  if (word in CODES) return CODES[word]!
-  const rgb = hex(word)
-  return rgb ? `38;2;${rgb[0]};${rgb[1]};${rgb[2]}` : null
+  const rgb = themedHex(word)
+  if (rgb) return `38;2;${rgb[0]};${rgb[1]};${rgb[2]}`
+  return word in CODES ? CODES[word]! : null
+}
+
+// Resolve a color word to rgb: the active theme's hex for a named color, else the word
+// itself if it is a hex value. Attributes and unthemed names fall through to null.
+function themedHex(word: string): [number, number, number] | null {
+  const themed = activeTheme ? activeTheme[word] : undefined
+  return hex(themed ?? word)
 }
 
 function hex(word: string): [number, number, number] | null {

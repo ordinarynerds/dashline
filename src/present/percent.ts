@@ -2,6 +2,7 @@ import type { Percent } from "../datum.ts";
 import type { Ctx, WidgetOpts } from "../widgets/types.ts";
 import { paint } from "../style.ts";
 import { bar } from "../util/bar.ts";
+import { gradientBar } from "./gradient.ts";
 import { human, countdown } from "../util/format.ts";
 
 const DEFAULT_WIDTH = 10;
@@ -10,7 +11,10 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   const color = opts.color ?? fillColor(d, opts, ctx);
   const width = opts.width ?? DEFAULT_WIDTH;
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
-  const meter = paint(bar(d.value, width, opts.bar), color);
+  const meter =
+    opts.bar === "gradient"
+      ? gradientBar(d.value, width)
+      : paint(bar(d.value, width, opts.bar), color);
 
   switch (opts.variant) {
     case "pct":
@@ -31,6 +35,10 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   const parts: string[] = [];
   if (label) parts.push(paint(label, "dim"));
   parts.push(number);
+  if (opts.trend && d.scale === "context") {
+    const arrow = trendArrow(ctx, d.value);
+    if (arrow) parts.push(arrow);
+  }
   if (d.defaultBar || opts.bar) parts.push(meter);
   if (d.tokens) parts.push(paint(tokens(d), "dim"));
   if (d.hint && d.value >= ctx.thresholds.critical) {
@@ -47,6 +55,18 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
 
 function tokens(d: Percent): string {
   return `(${human(d.tokens!.used)}/${human(d.tokens!.size)})`;
+}
+
+// Direction of context over the recent history: rising is a warning color, falling a good
+// one. Needs a few samples; null until then.
+function trendArrow(ctx: Ctx, current: number): string | null {
+  const values = (ctx.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx!);
+  if (values.length < 3) return null;
+  const prev = values[Math.max(0, values.length - 6)]!;
+  const delta = current - prev;
+  if (delta > 1) return paint("↑", "yellow");
+  if (delta < -1) return paint("↓", "green");
+  return paint("→", "dim");
 }
 
 function fillColor(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
