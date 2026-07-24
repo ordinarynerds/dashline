@@ -19,3 +19,11 @@ test('text items are neither commands nor a git trigger', () => {
   assert.deepEqual(commands, [])
   assert.equal(usesGit, false)
 })
+
+test('usesHistory for the burn widget, the history variant, and the trend option', () => {
+  assert.equal(scan([['model', 'context']]).usesHistory, false)
+  assert.equal(scan([['burn']]).usesHistory, true)
+  assert.equal(scan([[['context', 'history']]]).usesHistory, true)
+  assert.equal(scan([[['context', { variant: 'history' }]]]).usesHistory, true)
+  assert.equal(scan([[['context', { trend: true }]]]).usesHistory, true)
+})

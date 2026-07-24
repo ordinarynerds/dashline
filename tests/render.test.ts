@@ -193,14 +193,14 @@ test('theme recolors named widget colors', () => {
   }
 })
 
-test('sparkline draws a block graph from context history', () => {
-  const c = ctx({})
+test('the context history variant draws a block graph from history', () => {
+  const c = ctx(full)
   c.history = [
     { t: 0, ctx: 10, cost: null },
     { t: 5, ctx: 50, cost: null },
     { t: 10, ctx: 90, cost: null },
   ]
-  const out = run([['sparkline']], c)
+  const out = run([[['context', 'history']]], c)
   assert.equal(out.length, 1)
   assert.match(out[0]!, /[▁▂▃▄▅▆▇█]/)
 })

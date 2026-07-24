@@ -144,7 +144,6 @@ command, and a `{ "text": ... }` item is printed literally.
 | `name`      | `celestial-vega`                    | session name                       | label    |
 | `output`    | `/default`                          | output style                       | label    |
 | `version`   | `v2.1.90`                           | Claude Code version                | label    |
-| `sparkline` | `▁▂▃▅▆█`                            | context history                    | label    |
 | `burn`      | `→ /compact ~18m`                   | projected time to critical context | label    |
 | `fast`      | `fast`                              | fast mode                          | flag     |
 | `thinking`  | `thinking`                          | extended thinking                  | flag     |
@@ -152,9 +151,9 @@ command, and a `{ "text": ... }` item is printed literally.
 | `agent`     | `security-reviewer`                 | active subagent                    | label    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
-pair appears on Pro and Max once the payload carries rate limits. `sparkline`, `burn`, and
-the `trend` option read a short history of the session, so they appear after a few
-refreshes.
+pair appears on Pro and Max once the payload carries rate limits. The `burn` widget, the
+`history` variant, and the `trend` option read a short history of the session, so they
+appear after a few refreshes.
 
 ### Presentations, by type
 
@@ -163,7 +162,7 @@ presentation. Pass it as the item's variant. The first in each row is the defaul
 
 | Type       | Presentations                                                                                                                |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `percent`  | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
+| `percent`  | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), `history` (`▁▂▃▅▆█`, context only), plus [bar styles](#bar-styles) |
 | `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`)                                                                       |
 | `money`    | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`)                                                                            |
 | `delta`    | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`)                                                                        |
@@ -287,9 +286,9 @@ Each widget is a pure function from the payload to a typed value, which a presen
 The git branch and worktree are not in the payload, so dashline runs `git` once. Each
 command item runs under a 2-second timeout.
 
-The `sparkline` and `burn` widgets need a history, so when the config uses one dashline
-keeps a small `dashline-state.json` next to the settings with recent context samples per
-session. Without those widgets it holds no state.
+The `burn` widget, the `history` variant, and the `trend` option need a history, so when
+the config uses one dashline keeps a small `dashline-state/` directory next to the settings
+with recent context samples per session. Otherwise it holds no state.
 
 ## Security
 

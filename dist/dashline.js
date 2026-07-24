@@ -225,19 +225,6 @@ function countdown(resetsAt, now2) {
   return `${mins}m`;
 }
 
-// src/widgets/sparkline.ts
-var sparkline = {
-  data(ctx2) {
-    const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
-    if (values.length < 2) return null;
-    const recent = values.slice(-20);
-    const last = recent[recent.length - 1];
-    const t = ctx2.thresholds;
-    const color = last >= t.critical ? "red" : last >= t.warning ? "yellow" : "green";
-    return { kind: "label", text: spark(recent), color };
-  }
-};
-
 // src/widgets/burn.ts
 var MAX_ETA = 6 * 3600;
 var burn = {
@@ -317,7 +304,6 @@ var registry = {
   name,
   output,
   version,
-  sparkline,
   burn,
   fast,
   thinking,
@@ -431,7 +417,7 @@ function run(dir2, args) {
 
 // src/scan.ts
 var GIT_WIDGETS = /* @__PURE__ */ new Set(["branch", "worktree"]);
-var HISTORY_WIDGETS = /* @__PURE__ */ new Set(["sparkline", "burn"]);
+var HISTORY_WIDGETS = /* @__PURE__ */ new Set(["burn"]);
 function scan(lines2) {
   const commands2 = /* @__PURE__ */ new Set();
   let usesGit2 = false;
@@ -441,7 +427,7 @@ function scan(lines2) {
     for (const items of [zones.left, zones.center, zones.right]) {
       if (!items) continue;
       for (const item of items) {
-        if (Array.isArray(item) && typeof item[1] === "object" && item[1].trend) usesHistory2 = true;
+        if (usesHistoryItem(item)) usesHistory2 = true;
         const id = itemId(item);
         if (id === null) continue;
         if (widgetNames.has(id)) {
@@ -460,6 +446,12 @@ function itemId(item) {
   if (typeof item === "string") return item;
   if (Array.isArray(item)) return item[0];
   return null;
+}
+function usesHistoryItem(item) {
+  if (!Array.isArray(item)) return false;
+  const opt = item[1];
+  if (opt === "history") return true;
+  return typeof opt === "object" && (opt.variant === "history" || Boolean(opt.trend));
 }
 
 // src/state.ts
@@ -734,6 +726,8 @@ function percent(d, opts, ctx2) {
       return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number;
     case "tokens":
       return d.tokens ? paint(tokens(d), "dim") : number;
+    case "history":
+      return history(ctx2) ?? number;
   }
   const label2 = opts.label ?? d.label;
   const parts = [];
@@ -758,6 +752,15 @@ function percent(d, opts, ctx2) {
 }
 function tokens(d) {
   return `(${human(d.tokens.used)}/${human(d.tokens.size)})`;
+}
+function history(ctx2) {
+  const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
+  if (values.length < 2) return null;
+  const recent = values.slice(-20);
+  const last = recent[recent.length - 1];
+  const t = ctx2.thresholds;
+  const color = last >= t.critical ? "red" : last >= t.warning ? "yellow" : "green";
+  return paint(spark(recent), color);
 }
 function trendArrow(ctx2, current) {
   const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);

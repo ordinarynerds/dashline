@@ -3,7 +3,7 @@ import type { Ctx, WidgetOpts } from "../widgets/types.ts";
 import { paint } from "../style.ts";
 import { bar, clampWidth } from "../util/bar.ts";
 import { gradientBar } from "./gradient.ts";
-import { human, countdown } from "../util/format.ts";
+import { human, countdown, spark } from "../util/format.ts";
 
 const DEFAULT_WIDTH = 10;
 
@@ -29,6 +29,8 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
         : number;
     case "tokens":
       return d.tokens ? paint(tokens(d), "dim") : number;
+    case "history":
+      return history(ctx) ?? number;
   }
 
   const label = opts.label ?? d.label;
@@ -55,6 +57,18 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
 
 function tokens(d: Percent): string {
   return `(${human(d.tokens!.used)}/${human(d.tokens!.size)})`;
+}
+
+// The recent context history drawn as a sparkline, colored by the latest fill. Needs a
+// couple of samples; null until then, so the caller falls back to the number.
+function history(ctx: Ctx): string | null {
+  const values = (ctx.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx!);
+  if (values.length < 2) return null;
+  const recent = values.slice(-20);
+  const last = recent[recent.length - 1]!;
+  const t = ctx.thresholds;
+  const color = last >= t.critical ? "red" : last >= t.warning ? "yellow" : "green";
+  return paint(spark(recent), color);
 }
 
 // Direction of context over the recent history: rising is a warning color, falling a good

@@ -2,7 +2,7 @@ import type { Item, LineSpec } from './config.ts'
 import { widgetNames } from './widgets/registry.ts'
 
 const GIT_WIDGETS = new Set(['branch', 'worktree'])
-const HISTORY_WIDGETS = new Set(['sparkline', 'burn'])
+const HISTORY_WIDGETS = new Set(['burn'])
 
 export interface Scan {
   commands: string[]
@@ -23,7 +23,7 @@ export function scan(lines: LineSpec[]): Scan {
     for (const items of [zones.left, zones.center, zones.right]) {
       if (!items) continue
       for (const item of items) {
-        if (Array.isArray(item) && typeof item[1] === 'object' && item[1].trend) usesHistory = true
+        if (usesHistoryItem(item)) usesHistory = true
         const id = itemId(item)
         if (id === null) continue
         if (widgetNames.has(id)) {
@@ -44,4 +44,12 @@ function itemId(item: Item): string | null {
   if (typeof item === 'string') return item
   if (Array.isArray(item)) return item[0]
   return null
+}
+
+// The `history` variant and the `trend` option both read session history.
+function usesHistoryItem(item: Item): boolean {
+  if (!Array.isArray(item)) return false
+  const opt = item[1]
+  if (opt === 'history') return true
+  return typeof opt === 'object' && (opt.variant === 'history' || Boolean(opt.trend))
 }

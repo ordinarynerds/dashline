@@ -15,7 +15,6 @@ import { effort } from './effort.ts'
 import { name } from './name.ts'
 import { output } from './output.ts'
 import { version } from './version.ts'
-import { sparkline } from './sparkline.ts'
 import { burn } from './burn.ts'
 import { fast, thinking, vim, agent } from './flags.ts'
 
@@ -37,7 +36,6 @@ export const registry: Record<string, Widget> = {
   name,
   output,
   version,
-  sparkline,
   burn,
   fast,
   thinking,
