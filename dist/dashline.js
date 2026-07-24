@@ -423,7 +423,7 @@ var CODES = {
   reset: "0",
   bold: "1",
   dim: "2",
-  red: "1;31",
+  red: "31",
   green: "32",
   yellow: "33",
   blue: "34",
@@ -435,12 +435,24 @@ var RESET = "\x1B[0m";
 var CONTROL = /[\x00-\x1f\x7f]/g;
 function paint(text, term) {
   if (!term || !text) return text;
-  const codes = [...new Set(term.split(/\s+/).flatMap((word) => CODES[word]?.split(";") ?? []))];
+  const codes = term.split(/\s+/).map(codesFor).filter((c) => c !== null);
   if (codes.length === 0) return text;
   return `\x1B[${codes.join(";")}m${text}${RESET}`;
 }
 function isStyle(term) {
-  return term.split(/\s+/).every((word) => word in CODES);
+  return term.split(/\s+/).every((word) => codesFor(word) !== null);
+}
+function codesFor(word) {
+  if (word in CODES) return CODES[word];
+  const rgb = hex(word);
+  return rgb ? `38;2;${rgb[0]};${rgb[1]};${rgb[2]}` : null;
+}
+function hex(word) {
+  if (!word.startsWith("#")) return null;
+  let h = word.slice(1);
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 function sanitize(text) {
   return text.replace(CONTROL, "");
@@ -615,7 +627,16 @@ function present(datum, opts, ctx2) {
 // src/util/width.ts
 var ANSI = /\x1b\[[0-9;]*m/g;
 function visibleWidth(text) {
-  return [...text.replace(ANSI, "")].length;
+  let width = 0;
+  for (const ch of text.replace(ANSI, "")) width += charWidth(ch.codePointAt(0));
+  return width;
+}
+function charWidth(cp) {
+  if (cp === 8203 || cp === 8205 || cp === 65279 || cp >= 768 && cp <= 879 || cp >= 6832 && cp <= 6911 || cp >= 7616 && cp <= 7679 || cp >= 8400 && cp <= 8447 || cp >= 65024 && cp <= 65039 || cp >= 65056 && cp <= 65071)
+    return 0;
+  if (cp >= 4352 && cp <= 4447 || cp >= 11904 && cp <= 12350 || cp >= 12353 && cp <= 13311 || cp >= 13312 && cp <= 19903 || cp >= 19968 && cp <= 40959 || cp >= 40960 && cp <= 42191 || cp >= 44032 && cp <= 55203 || cp >= 63744 && cp <= 64255 || cp >= 65072 && cp <= 65103 || cp >= 65280 && cp <= 65376 || cp >= 65504 && cp <= 65510 || cp >= 127744 && cp <= 129791 || cp >= 131072 && cp <= 262141)
+    return 2;
+  return 1;
 }
 
 // src/layout.ts
