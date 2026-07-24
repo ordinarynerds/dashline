@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { Payload } from './payload.ts'
 import type { WidgetOpts } from './widgets/types.ts'
+import { widgetNames } from './widgets/registry.ts'
 
 export type Item = string | [string, string | WidgetOpts]
 
@@ -40,15 +41,46 @@ const DEFAULT_LINES: LineSpec[] = [
 export function loadConfig(payload: Payload): DashlineConfig {
   const project = payload.workspace?.project_dir ?? payload.workspace?.current_dir ?? payload.cwd
 
-  const files = [
-    join(homedir(), '.claude', 'settings.json'),
+  const home = join(homedir(), '.claude')
+  const trusted = new Set([join(home, 'settings.json'), join(home, 'settings.local.json')])
+
+  const candidates = [
+    join(home, 'settings.json'),
+    join(home, 'settings.local.json'),
     project && join(project, '.claude', 'settings.json'),
     project && join(project, '.claude', 'settings.local.json'),
   ].filter((f): f is string => typeof f === 'string')
 
-  const merged = files.reduce<Partial<DashlineConfig>>((acc, file) => Object.assign(acc, read(file)), {})
+  let merged: Partial<DashlineConfig> = {}
+  let linesTrusted = true
+  const seen = new Set<string>()
+  for (const file of candidates) {
+    if (seen.has(file)) continue
+    seen.add(file)
+    const found = read(file)
+    if (found.lines !== undefined) linesTrusted = trusted.has(file)
+    merged = Object.assign(merged, found)
+  }
 
-  return { ...DEFAULTS, ...merged, lines: merged.lines ?? DEFAULT_LINES }
+  let lines = merged.lines ?? DEFAULT_LINES
+  if (!linesTrusted) lines = lines.map(withoutCommands)
+
+  return { ...DEFAULTS, ...merged, lines }
+}
+
+// Commands only run from the user's own settings. Config that rides in through a
+// project (a cloned repo) may arrange widgets but never introduce a command.
+function withoutCommands(line: LineSpec): LineSpec {
+  if (Array.isArray(line)) return line.filter(isWidget)
+  const zones: Zones = {}
+  if (line.left) zones.left = line.left.filter(isWidget)
+  if (line.center) zones.center = line.center.filter(isWidget)
+  if (line.right) zones.right = line.right.filter(isWidget)
+  return zones
+}
+
+function isWidget(item: Item): boolean {
+  return widgetNames.has(Array.isArray(item) ? item[0] : item)
 }
 
 function read(file: string): Partial<DashlineConfig> {

@@ -174,6 +174,22 @@ Each widget is a small pure function from the payload to a string. The git branc
 worktree are the one thing not in the payload, so dashline asks `git` once. A command
 item runs in a 2-second timeout, so a slow tool can't stall the line.
 
+## Security
+
+dashline can run shell commands, so it is deliberate about where they come from.
+
+- Command items run only from your own user settings (`~/.claude/settings.json` and
+  `~/.claude/settings.local.json`). Config that arrives through a project, such as a
+  `.claude/settings.json` committed to a repository you cloned, may arrange widgets, but
+  any command in it is dropped. Cloning a repo cannot make dashline run code.
+- Dynamic values reach your commands through the environment (`$DASHLINE_BRANCH`,
+  `$DASHLINE_WORKTREE`, `$DASHLINE_CWD`), never spliced into the command text, so a
+  branch named like a shell expression cannot inject anything.
+- dashline's own git lookups run without a shell.
+- Each command runs under a 2-second timeout.
+- A command's output is printed as is, including any terminal escapes it emits, so wire
+  up only tools you trust.
+
 ## Develop
 
 ```bash

@@ -25,3 +25,6 @@ export const registry: Record<string, Widget> = {
   name,
   output,
 }
+
+export const widgetNames = new Set(Object.keys(registry))
+

@@ -11,67 +11,8 @@ function parsePayload(raw2) {
 
 // src/config.ts
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir as homedir2 } from "node:os";
 import { join } from "node:path";
-var DEFAULTS = {
-  separator: "\xB7",
-  margin: 5,
-  warn: 40,
-  compact: 50,
-  usageWarn: 70,
-  usageCrit: 90
-};
-var DEFAULT_LINES = [
-  { left: ["branch", "model", "context"], right: ["session", "weekly"] }
-];
-function loadConfig(payload2) {
-  const project = payload2.workspace?.project_dir ?? payload2.workspace?.current_dir ?? payload2.cwd;
-  const files = [
-    join(homedir(), ".claude", "settings.json"),
-    project && join(project, ".claude", "settings.json"),
-    project && join(project, ".claude", "settings.local.json")
-  ].filter((f) => typeof f === "string");
-  const merged = files.reduce((acc, file) => Object.assign(acc, read(file)), {});
-  return { ...DEFAULTS, ...merged, lines: merged.lines ?? DEFAULT_LINES };
-}
-function read(file) {
-  try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
-    return parsed.dashline && typeof parsed.dashline === "object" ? parsed.dashline : {};
-  } catch {
-    return {};
-  }
-}
-
-// src/util/git.ts
-import { execFileSync } from "node:child_process";
-import { basename } from "node:path";
-function readGit(dir2, worktreeHint) {
-  if (!dir2) return {};
-  const out = run(dir2, ["rev-parse", "--abbrev-ref", "HEAD", "--absolute-git-dir"]);
-  if (!out) return {};
-  const [head, gitDir] = out.split("\n");
-  let branch2 = head;
-  if (branch2 === "HEAD") {
-    branch2 = run(dir2, ["rev-parse", "--short", "HEAD"]) ?? "HEAD";
-  }
-  let worktree2 = worktreeHint;
-  if (!worktree2 && gitDir?.includes("/worktrees/")) {
-    const top = run(dir2, ["rev-parse", "--show-toplevel"]);
-    if (top) worktree2 = basename(top);
-  }
-  return { branch: branch2 || void 0, worktree: worktree2 };
-}
-function run(dir2, args) {
-  try {
-    return execFileSync("git", ["-C", dir2, ...args], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"]
-    }).trim();
-  } catch {
-    return void 0;
-  }
-}
 
 // src/style.ts
 var CODES = {
@@ -221,14 +162,14 @@ var worktree = {
 };
 
 // src/widgets/cwd.ts
-import { homedir as homedir2 } from "node:os";
-import { basename as basename2 } from "node:path";
+import { homedir } from "node:os";
+import { basename } from "node:path";
 var cwd = {
   render({ payload: payload2 }, opts) {
     const dir2 = payload2.workspace?.current_dir ?? payload2.cwd;
     if (!dir2) return null;
-    if (opts.variant === "basename") return paint(basename2(dir2), "dim");
-    const home = homedir2();
+    if (opts.variant === "basename") return paint(basename(dir2), "dim");
+    const home = homedir();
     const shown = home && dir2.startsWith(home) ? `~${dir2.slice(home.length)}` : dir2;
     return paint(shown, "dim");
   }
@@ -276,6 +217,93 @@ var registry = {
   name,
   output
 };
+var widgetNames = new Set(Object.keys(registry));
+
+// src/config.ts
+var DEFAULTS = {
+  separator: "\xB7",
+  margin: 5,
+  warn: 40,
+  compact: 50,
+  usageWarn: 70,
+  usageCrit: 90
+};
+var DEFAULT_LINES = [
+  { left: ["branch", "model", "context"], right: ["session", "weekly"] }
+];
+function loadConfig(payload2) {
+  const project = payload2.workspace?.project_dir ?? payload2.workspace?.current_dir ?? payload2.cwd;
+  const home = join(homedir2(), ".claude");
+  const trusted = /* @__PURE__ */ new Set([join(home, "settings.json"), join(home, "settings.local.json")]);
+  const candidates = [
+    join(home, "settings.json"),
+    join(home, "settings.local.json"),
+    project && join(project, ".claude", "settings.json"),
+    project && join(project, ".claude", "settings.local.json")
+  ].filter((f) => typeof f === "string");
+  let merged = {};
+  let linesTrusted = true;
+  const seen = /* @__PURE__ */ new Set();
+  for (const file of candidates) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const found = read(file);
+    if (found.lines !== void 0) linesTrusted = trusted.has(file);
+    merged = Object.assign(merged, found);
+  }
+  let lines2 = merged.lines ?? DEFAULT_LINES;
+  if (!linesTrusted) lines2 = lines2.map(withoutCommands);
+  return { ...DEFAULTS, ...merged, lines: lines2 };
+}
+function withoutCommands(line) {
+  if (Array.isArray(line)) return line.filter(isWidget);
+  const zones = {};
+  if (line.left) zones.left = line.left.filter(isWidget);
+  if (line.center) zones.center = line.center.filter(isWidget);
+  if (line.right) zones.right = line.right.filter(isWidget);
+  return zones;
+}
+function isWidget(item) {
+  return widgetNames.has(Array.isArray(item) ? item[0] : item);
+}
+function read(file) {
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    return parsed.dashline && typeof parsed.dashline === "object" ? parsed.dashline : {};
+  } catch {
+    return {};
+  }
+}
+
+// src/util/git.ts
+import { execFileSync } from "node:child_process";
+import { basename as basename2 } from "node:path";
+function readGit(dir2, worktreeHint) {
+  if (!dir2) return {};
+  const out = run(dir2, ["rev-parse", "--abbrev-ref", "HEAD", "--absolute-git-dir"]);
+  if (!out) return {};
+  const [head, gitDir] = out.split("\n");
+  let branch2 = head;
+  if (branch2 === "HEAD") {
+    branch2 = run(dir2, ["rev-parse", "--short", "HEAD"]) ?? "HEAD";
+  }
+  let worktree2 = worktreeHint;
+  if (!worktree2 && gitDir?.includes("/worktrees/")) {
+    const top = run(dir2, ["rev-parse", "--show-toplevel"]);
+    if (top) worktree2 = basename2(top);
+  }
+  return { branch: branch2 || void 0, worktree: worktree2 };
+}
+function run(dir2, args) {
+  try {
+    return execFileSync("git", ["-C", dir2, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
+  } catch {
+    return void 0;
+  }
+}
 
 // src/widgets/command.ts
 import { execSync } from "node:child_process";
