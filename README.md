@@ -40,6 +40,21 @@ The installer backs up `settings.json`, points `statusLine` at `node dist/dashli
 and leaves a `settings.json.bak-dashline-*` file. Undo with `./scripts/install.sh
 --uninstall`. Start a new session or run `/statusline` to see it. Requires Node 18+.
 
+### Updating
+
+Plugin: enable auto-update in `/plugin` (Marketplaces tab), or pull on demand:
+
+```
+/plugin marketplace update
+/reload-plugins
+```
+
+Manual:
+
+```bash
+cd ~/.claude/dashline && ./scripts/install.sh --update
+```
+
 ## Quick start
 
 The config is a `dashline` key in `~/.claude/settings.json`. Each entry in `lines` is one
@@ -244,6 +259,10 @@ npm run typecheck
 Source is in `src/`: `widgets/` holds one file per field, `present/` draws each data
 type, `render.ts` lays out the zones, `layout.ts` justifies a line, and `config.ts` reads
 and merges settings. Adding a widget is one file plus one line in `widgets/registry.ts`.
+
+Releases run on [release-please](https://github.com/googleapis/release-please): commit
+with [Conventional Commit](https://www.conventionalcommits.org) messages. Merging its
+release PR bumps the version, writes `CHANGELOG.md`, and tags a release.
 
 ## License
 

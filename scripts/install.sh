@@ -11,6 +11,19 @@ ENTRY="$DIR/dist/dashline.js"
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CONFIG_DIR/settings.json"
 
+if [ "${1:-}" = "--update" ]; then
+  command -v git >/dev/null 2>&1 || { echo "dashline: git is required to update a clone."; exit 1; }
+  git -C "$DIR" rev-parse --git-dir >/dev/null 2>&1 || {
+    echo "dashline: $DIR is not a git clone. If you installed the plugin, update with /plugin marketplace update."
+    exit 1
+  }
+  echo "dashline: updating $DIR"
+  git -C "$DIR" pull --ff-only
+  command -v npm >/dev/null 2>&1 && npm --prefix "$DIR" run build
+  echo "dashline: updated. Start a new session to load it."
+  exit 0
+fi
+
 command -v node >/dev/null 2>&1 || { echo "dashline: node is required (https://nodejs.org)."; exit 1; }
 [ -f "$ENTRY" ] || { echo "dashline: cannot find $ENTRY (run 'npm run build' first)."; exit 1; }
 
