@@ -20,6 +20,7 @@ export interface Ctx {
 export interface WidgetOpts {
   // presentation
   color?: string
+  bg?: string
   variant?: string
   bar?: string
   // data

@@ -156,6 +156,13 @@ test('a { text } item takes a color and an empty one is dropped', () => {
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
 })
 
+test('a text item and a widget label can take a background color', () => {
+  // magenta background = SGR 45
+  assert.match(render({ ...base, lines: [[{ text: 'PR', color: 'black', bg: 'magenta' }]] }, ctx({}), 120)[0]!, /45m/)
+  // blue background = SGR 44 on a widget label
+  assert.match(render({ ...base, lines: [[['model', { bg: 'blue' }]]] }, ctx({ model: { display_name: 'Opus' } }), 120)[0]!, /44m/)
+})
+
 test('control characters in a text item and the separator are neutralized', () => {
   const ESC = String.fromCharCode(27)
   const BEL = String.fromCharCode(7)

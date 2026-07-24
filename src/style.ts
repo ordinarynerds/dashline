@@ -2,12 +2,14 @@ const CODES: Record<string, string> = {
   reset: '0',
   bold: '1',
   dim: '2',
+  black: '30',
   red: '31',
   green: '32',
   yellow: '33',
   blue: '34',
   magenta: '35',
   cyan: '36',
+  white: '37',
   gray: '90',
 }
 
@@ -19,14 +21,24 @@ export type StyleTerm = string
 // must never carry raw escapes into the terminal, whatever their source.
 const CONTROL = /[\x00-\x1f\x7f]/g
 
-export function paint(text: string, term?: StyleTerm): string {
-  if (!term || !text) return text
-  const codes = term
-    .split(/\s+/)
-    .map(codesFor)
-    .filter((c): c is string => c !== null)
+export function paint(text: string, term?: StyleTerm, bg?: string): string {
+  if (!text || (!term && !bg)) return text
+  const codes: string[] = []
+  if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c): c is string => c !== null))
+  if (bg) {
+    const b = bgCodesFor(bg)
+    if (b) codes.push(b)
+  }
   if (codes.length === 0) return text
   return `\x1b[${codes.join(';')}m${text}${RESET}`
+}
+
+// A background color: a hex value or one of the named colors (not the attributes).
+function bgCodesFor(word: string): string | null {
+  const rgb = hex(word)
+  if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`
+  const fg = CODES[word]
+  return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null
 }
 
 export function isStyle(term: string): boolean {

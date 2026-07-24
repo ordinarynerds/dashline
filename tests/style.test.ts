@@ -16,6 +16,11 @@ test('hex terms become 24-bit truecolor', () => {
   assert.equal(isStyle('#nothex'), false)
 })
 
+test('a background color adds a bg code, named or hex', () => {
+  assert.equal(paint('x', 'black', 'cyan'), `${ESC}[30;46mx${ESC}[0m`)
+  assert.equal(paint('x', undefined, '#4ec9d6'), `${ESC}[48;2;78;201;214mx${ESC}[0m`)
+})
+
 test('unknown terms paint nothing', () => {
   assert.equal(paint('x', 'chartreuse'), 'x')
   assert.equal(isStyle('chartreuse'), false)

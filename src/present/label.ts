@@ -14,7 +14,7 @@ export function label(d: Label, opts: WidgetOpts): string {
   if (limit > 0 && text.length > limit) text = `${text.slice(0, limit - 1)}…`
 
   const color = opts.color ?? d.color
-  const body = color ? paint(text, color) : text
+  const body = color || opts.bg ? paint(text, color, opts.bg) : text
   const icon = opts.icon ?? d.icon
   return icon ? `${paint(icon, d.iconColor ?? 'dim')} ${body}` : body
 }

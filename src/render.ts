@@ -38,7 +38,7 @@ function renderItem(item: Item, ctx: Ctx): string | null {
   if (typeof item === 'object' && !Array.isArray(item)) {
     if (!item.text) return null
     const text = sanitize(item.text)
-    return item.color ? paint(text, item.color) : text
+    return item.color || item.bg ? paint(text, item.color, item.bg) : text
   }
 
   const [id, raw] = Array.isArray(item) ? item : [item, undefined]

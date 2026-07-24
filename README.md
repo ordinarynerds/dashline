@@ -184,16 +184,20 @@ Object-form keys that change what a widget shows rather than how. Combine them w
 | `truncate`                | label   | shorten the text to N characters with an ellipsis          |
 | `icon`                    | label   | a glyph placed before the text                             |
 | `color`                   | any     | a fixed color (see below)                                  |
+| `bg`                      | text, label | a background color, for badges                          |
 | `variant`                 | any     | which presentation to draw                                 |
 
 ### Colors
 
 A color term is one or more of these words, so `"bold red"` is valid:
 
-`red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `dim` · `bold`
+`red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `black` · `white` · `dim` · `bold`
 
 A term can also be a hex value for 24-bit color: `"#4EC9D6"`, or `"#fff"` in shorthand.
 Mix it with attributes, so `"bold #4EC9D6"` works.
+
+The `bg` option fills the background of a text or label item, which makes a badge:
+`{ "text": " PR ", "color": "black", "bg": "#C678DD" }`.
 
 A color on an item overrides its default styling. `context`, `session`, and `weekly`
 normally color themselves by fill; a fixed color removes that signal.
@@ -223,6 +227,21 @@ Alongside `lines`, the `dashline` object takes:
 | `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this % |
 | `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                     |
 | `usageCriticalAt`   | `90`    | usage widgets turn red at/above this %                        |
+
+### Editor autocomplete
+
+The config has a schema at [`dashline.schema.json`](dashline.schema.json). It constrains
+only the `dashline` key and leaves the rest of `settings.json` alone. Point your editor at
+it for autocomplete and validation. In VS Code, add to your settings:
+
+```json
+"json.schemas": [
+  {
+    "fileMatch": ["**/.claude/settings.json", "**/.claude/settings.local.json"],
+    "url": "https://raw.githubusercontent.com/ordinarynerds/dashline/main/dashline.schema.json"
+  }
+]
+```
 
 ## How it works
 

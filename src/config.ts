@@ -8,6 +8,7 @@ import { widgetNames } from './widgets/registry.ts'
 export interface TextItem {
   text: string
   color?: string
+  bg?: string
 }
 
 export type Item = string | [string, string | WidgetOpts] | TextItem

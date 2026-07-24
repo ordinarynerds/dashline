@@ -423,21 +423,34 @@ var CODES = {
   reset: "0",
   bold: "1",
   dim: "2",
+  black: "30",
   red: "31",
   green: "32",
   yellow: "33",
   blue: "34",
   magenta: "35",
   cyan: "36",
+  white: "37",
   gray: "90"
 };
 var RESET = "\x1B[0m";
 var CONTROL = /[\x00-\x1f\x7f]/g;
-function paint(text, term) {
-  if (!term || !text) return text;
-  const codes = term.split(/\s+/).map(codesFor).filter((c) => c !== null);
+function paint(text, term, bg) {
+  if (!text || !term && !bg) return text;
+  const codes = [];
+  if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c) => c !== null));
+  if (bg) {
+    const b = bgCodesFor(bg);
+    if (b) codes.push(b);
+  }
   if (codes.length === 0) return text;
   return `\x1B[${codes.join(";")}m${text}${RESET}`;
+}
+function bgCodesFor(word) {
+  const rgb = hex(word);
+  if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
+  const fg = CODES[word];
+  return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null;
 }
 function isStyle(term) {
   return term.split(/\s+/).every((word) => codesFor(word) !== null);
@@ -601,7 +614,7 @@ function label(d, opts) {
   const limit = opts.truncate ?? (v?.startsWith("truncate:") ? Number(v.slice("truncate:".length)) : 0);
   if (limit > 0 && text.length > limit) text = `${text.slice(0, limit - 1)}\u2026`;
   const color = opts.color ?? d.color;
-  const body = color ? paint(text, color) : text;
+  const body = color || opts.bg ? paint(text, color, opts.bg) : text;
   const icon = opts.icon ?? d.icon;
   return icon ? `${paint(icon, d.iconColor ?? "dim")} ${body}` : body;
 }
@@ -692,7 +705,7 @@ function renderItem(item, ctx2) {
   if (typeof item === "object" && !Array.isArray(item)) {
     if (!item.text) return null;
     const text = sanitize(item.text);
-    return item.color ? paint(text, item.color) : text;
+    return item.color || item.bg ? paint(text, item.color, item.bg) : text;
   }
   const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
   const opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
