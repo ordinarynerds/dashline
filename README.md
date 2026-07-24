@@ -125,35 +125,36 @@ Each widget reads one field of the payload; the right column is its type. A widg
 data hides itself, and an empty row is skipped. An unrecognized bare string runs as a shell
 command, and a `{ "text": ... }` item is printed literally.
 
-| Widget     | Example                             | Displays                | Type     |
-| ---------- | ----------------------------------- | ----------------------- | -------- |
-| `branch`   | `⎇ main`                            | git branch              | label    |
-| `model`    | `Opus 4.8`                          | model name              | label    |
-| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | model context           | percent  |
-| `session`  | `session 61% (↻2h11m)`              | session usage and reset | percent  |
-| `weekly`   | `All 74%`                           | weekly usage            | percent  |
-| `cost`     | `$2.69`                             | session cost            | money    |
-| `duration` | `37m`                               | wall-clock this session | duration |
-| `lines`    | `+156 -23`                          | lines added and removed | delta    |
-| `pr`       | `PR #702`                           | open PR number          | label    |
-| `review`   | `pending`                           | PR review state         | label    |
-| `worktree` | `⌂ hotfix`                          | linked worktree         | label    |
-| `cwd`      | `~/Development/dashline`            | working directory       | label    |
-| `repo`     | `dashline`                          | repository name         | label    |
-| `effort`   | `high`                              | reasoning effort        | label    |
-| `name`     | `celestial-vega`                    | session name            | label    |
-| `output`   | `/default`                          | output style            | label    |
-| `version`  | `v2.1.90`                           | Claude Code version     | label    |
-| `sparkline`| `▁▂▃▅▆█`                            | context history         | label    |
-| `burn`     | `→ /compact ~18m`                   | projected time to critical context | label |
-| `fast`     | `fast`                              | fast mode               | flag     |
-| `thinking` | `thinking`                          | extended thinking       | flag     |
-| `vim`      | `NORMAL`                            | vim mode                | label    |
-| `agent`    | `security-reviewer`                 | active subagent         | label    |
+| Widget      | Example                             | Displays                           | Type     |
+| ----------- | ----------------------------------- | ---------------------------------- | -------- |
+| `branch`    | `⎇ main`                            | git branch                         | label    |
+| `model`     | `Opus 4.8`                          | model name                         | label    |
+| `context`   | `44% ████░░░░░░ (440k/1.0M) · high` | model context                      | percent  |
+| `session`   | `session 61% (↻2h11m)`              | session usage and reset            | percent  |
+| `weekly`    | `All 74%`                           | weekly usage                       | percent  |
+| `cost`      | `$2.69`                             | session cost                       | money    |
+| `duration`  | `37m`                               | wall-clock this session            | duration |
+| `lines`     | `+156 -23`                          | lines added and removed            | delta    |
+| `pr`        | `PR #702`                           | open PR number                     | label    |
+| `review`    | `pending`                           | PR review state                    | label    |
+| `worktree`  | `⌂ hotfix`                          | linked worktree                    | label    |
+| `cwd`       | `~/Development/dashline`            | working directory                  | label    |
+| `repo`      | `dashline`                          | repository name                    | label    |
+| `effort`    | `high`                              | reasoning effort                   | label    |
+| `name`      | `celestial-vega`                    | session name                       | label    |
+| `output`    | `/default`                          | output style                       | label    |
+| `version`   | `v2.1.90`                           | Claude Code version                | label    |
+| `sparkline` | `▁▂▃▅▆█`                            | context history                    | label    |
+| `burn`      | `→ /compact ~18m`                   | projected time to critical context | label    |
+| `fast`      | `fast`                              | fast mode                          | flag     |
+| `thinking`  | `thinking`                          | extended thinking                  | flag     |
+| `vim`       | `NORMAL`                            | vim mode                           | label    |
+| `agent`     | `security-reviewer`                 | active subagent                    | label    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
-pair appears on Pro and Max once the payload carries rate limits. `sparkline` and `burn`
-read a short history of the session, so they appear after a few refreshes.
+pair appears on Pro and Max once the payload carries rate limits. `sparkline`, `burn`, and
+the `trend` option read a short history of the session, so they appear after a few
+refreshes.
 
 ### Presentations, by type
 
@@ -177,19 +178,19 @@ The reductive presentations (`bar`, `pct`, `tokens`) draw only that part.
 Object-form keys that change what a widget shows rather than how. Combine them with
 `variant`, `bar`, and `color`.
 
-| Option                    | Types   | Effect                                                     |
-| ------------------------- | ------- | ---------------------------------------------------------- |
-| `label`                   | percent | rename the prefix, such as `session` to `5h`               |
-| `countdown`               | percent | set `false` to drop the reset countdown                    |
-| `warningAt`, `criticalAt` | percent | color thresholds for this item, overriding the global ones |
-| `trend`                   | percent | append a ↑/↓/→ arrow for context, read from session history |
-| `width`                   | percent | bar width in columns                                       |
-| `bar`                     | percent | bar glyph style (see [bar styles](#bar-styles))            |
-| `truncate`                | label   | shorten the text to N characters with an ellipsis          |
-| `icon`                    | label   | a glyph placed before the text                             |
-| `color`                   | any     | a fixed color (see below)                                  |
-| `bg`                      | text, label | a background color, for badges                          |
-| `variant`                 | any     | which presentation to draw                                 |
+| Option                    | Types       | Effect                                                      |
+| ------------------------- | ----------- | ----------------------------------------------------------- |
+| `label`                   | percent     | rename the prefix, such as `session` to `5h`                |
+| `countdown`               | percent     | set `false` to drop the reset countdown                     |
+| `warningAt`, `criticalAt` | percent     | color thresholds for this item, overriding the global ones  |
+| `trend`                   | percent     | append a ↑/↓/→ arrow for context, read from session history |
+| `width`                   | percent     | bar width in columns                                        |
+| `bar`                     | percent     | bar glyph style (see [bar styles](#bar-styles))             |
+| `truncate`                | label       | shorten the text to N characters with an ellipsis           |
+| `icon`                    | label       | a glyph placed before the text                              |
+| `color`                   | any         | a fixed color (see below)                                   |
+| `bg`                      | text, label | a background color, for badges                              |
+| `variant`                 | any         | which presentation to draw                                  |
 
 ### Colors
 
@@ -211,30 +212,55 @@ normally color themselves by fill; a fixed color removes that signal.
 Any `percent` bar takes a `bar` glyph style. Every style is single-cell, so the bar
 stays the same width whichever you pick.
 
-| `bar`              | 44% of 10    |                                     |
-| ------------------ | ------------ | ----------------------------------- |
-| `blocks` (default) | `████░░░░░░` | sharp                               |
-| `shade`            | `▓▓▓▓░░░░░░` | softer fill                         |
-| `line`             | `━━━━──────` | thin                                |
-| `ascii`            | `[###-----]` | brackets counted inside the width   |
-| `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+| `bar`              | 44% of 10    |                                                        |
+| ------------------ | ------------ | ------------------------------------------------------ |
+| `blocks` (default) | `████░░░░░░` | sharp                                                  |
+| `shade`            | `▓▓▓▓░░░░░░` | softer fill                                            |
+| `line`             | `━━━━──────` | thin                                                   |
+| `ascii`            | `[###-----]` | brackets counted inside the width                      |
+| `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column                    |
 | `gradient`         | `██████░░░░` | filled cells ramp green to red by position (truecolor) |
+
+The `gradient` style colors each filled cell along a green-to-red ramp by its position, so
+a fuller bar reads hotter. It uses truecolor, unlike the single-color styles above.
+
+### Themes
+
+`theme` remaps the named colors to a palette in one move, so every widget that uses a named
+color, and the fill colors on `context`, `session`, and `weekly`, follow the scheme.
+Available: `nord`, `dracula`, `gruvbox`, `catppuccin`.
+
+```json
+{ "dashline": { "theme": "catppuccin", "lines": [["branch", "model", "context"]] } }
+```
+
+### Powerline
+
+`powerline: true` draws each zone as connected segments joined by arrow glyphs, with each
+segment's background fading into the next. A segment takes an item's `bg`, or an alternating
+neutral tone when it has none, so it composes with badges. The right zone runs the arrows in
+reverse so the ribbon points back toward the content. Needs a Nerd Font.
+
+### Icons
+
+`icons: true` prefixes label widgets (`branch`, `model`, `cwd`, `pr`, and so on) with a Nerd
+Font glyph. An explicit `icon` on an item wins over the default. Needs a Nerd Font.
 
 ### Config keys
 
 Alongside `lines`, the `dashline` object takes:
 
-| Key                 | Default | Effect                                                        |
-| ------------------- | ------- | ------------------------------------------------------------- |
-| `separator`         | `·`     | drawn dim between items in a zone                             |
-| `margin`            | `5`     | columns kept free at the right edge                           |
-| `powerline`         | `false` | draw each zone as arrow-joined segments (needs a Nerd Font)   |
+| Key                 | Default | Effect                                                                          |
+| ------------------- | ------- | ------------------------------------------------------------------------------- |
+| `separator`         | `·`     | drawn dim between items in a zone                                               |
+| `margin`            | `5`     | columns kept free at the right edge                                             |
+| `powerline`         | `false` | draw each zone as arrow-joined segments (needs a Nerd Font)                     |
 | `theme`             | `""`    | recolor named colors from a palette: `nord`, `dracula`, `gruvbox`, `catppuccin` |
-| `icons`             | `false` | prefix label widgets with a Nerd Font glyph                   |
-| `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                 |
-| `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this % |
-| `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                     |
-| `usageCriticalAt`   | `90`    | usage widgets turn red at/above this %                        |
+| `icons`             | `false` | prefix label widgets with a Nerd Font glyph                                     |
+| `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                                   |
+| `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this %                   |
+| `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                                       |
+| `usageCriticalAt`   | `90`    | usage widgets turn red at/above this %                                          |
 
 ### Editor autocomplete
 
