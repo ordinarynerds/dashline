@@ -1,9 +1,8 @@
 # dashline
 
-A configurable Claude Code status line. You compose it in `settings.json` by
-listing the fields you want and where they go. No scripting, no bash. It ships with
-a sensible default (context window on the left, subscription usage on the right), so
-it looks right the moment you install it.
+One status line for Claude Code, configured entirely in `settings.json`. No scripting.
+It ships working (context window on the left, plan usage on the right), and you reshape
+it by listing the fields you want.
 
 ![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
@@ -13,11 +12,9 @@ it looks right the moment you install it.
 
 ## Why
 
-If you want something simpler than a full status-line builder, this is it. Two
-things go wrong in a long Claude Code session: the context window fills up until the
+Two things go wrong in a long Claude Code session: the context window fills up until the
 model starts dropping detail, and you hit a rate limit you never saw coming. dashline
-puts both in front of you, and lets you add anything else the payload knows about by
-naming it in your settings.
+keeps both on screen, and lets you add anything else in the payload by naming it.
 
 ## Install
 
@@ -40,215 +37,183 @@ cd ~/.claude/dashline && npm install && npm run build
 ./scripts/install.sh
 ```
 
-The installer backs up `settings.json`, points `statusLine` at
-`node dist/dashline.js`, and leaves a `settings.json.bak-dashline-*` file. Undo with
-`./scripts/install.sh --uninstall`. Start a new session or run `/statusline` to see it.
+The installer backs up `settings.json`, points `statusLine` at `node dist/dashline.js`,
+and leaves a `settings.json.bak-dashline-*` file. Undo with `./scripts/install.sh
+--uninstall`. Start a new session or run `/statusline` to see it. Requires Node 18+.
 
-**Requirements:** Node 18 or newer. That is the only dependency.
+## Quick start
 
-## Configure
-
-Everything lives under a `dashline` key in `~/.claude/settings.json` (project
-`.claude/settings.json` and `settings.local.json` override it). This is the default,
-and writing it out reproduces what ships:
+The whole config is a `dashline` key in `~/.claude/settings.json`. Each entry in `lines`
+is one row on screen. This is the default, written out:
 
 ```jsonc
 {
   "dashline": {
     "lines": [
-      {
-        "left": ["branch", "model", "context"],
-        "right": ["session", "weekly"],
-      },
-    ],
-  },
+      { "left": ["branch", "model", "context"], "right": ["session", "weekly"] }
+    ]
+  }
 }
 ```
 
-`lines` is a list, and each entry is one row on screen.
-
-**A row** is either a bare array, which is left-aligned:
+An **item** is one of five shapes:
 
 ```jsonc
-["branch", "model", "context"]
+"branch"                                       // a widget
+["model", "cyan"]                              // widget + a color
+["cwd", "basename"]                            // widget + a variant (a different drawing)
+["session", { "bar": "fine", "label": "5h" }]  // widget + options
+"kache stat"                                   // any other string runs as a shell command
 ```
 
-or an object with up to three zones that dashline spreads across the width:
+A **row** is either a bare array like `["branch", "model"]` (left-aligned), or a
+`{ "left": [...], "center": [...], "right": [...] }` object spread across the width.
+
+That is the entire model. The [reference](#reference) lists every widget and option.
+
+## Recipes
+
+Drop any of these into your `dashline.lines`.
+
+Add cost and an open-PR badge to the right:
 
 ```jsonc
-{ "left": ["branch"], "center": ["cwd"], "right": ["cost", "pr"] }
+{ "left": ["branch", "model", "context"], "right": ["cost", "pr", "session"] }
 ```
 
-**An item** in a zone is one of:
-
-| Form                                                   | Meaning                                                                          |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `"branch"`                                             | a widget, in its default style                                                   |
-| `["model", "red"]`                                     | a widget, recolored (see [styles](#styles))                                      |
-| `["context", "bar"]`                                   | a widget, in a named variant (see [widgets](#widgets))                           |
-| `["context", { "variant": "bar", "color": "yellow" }]` | variant and color together                                                       |
-| `"codemap ls --linked"`                                | anything unrecognized runs as a shell command; its first line of output is shown |
-
-A string is read as a color when it is a known style term, otherwise as a variant, so
-`["model", "red"]` and `["context", "pct"]` both do what they look like.
-
-### Other keys
-
-| Key         | Default | Effect                                              |
-| ----------- | ------- | --------------------------------------------------- |
-| `separator` | `·`     | drawn dim between items in a zone                   |
-| `margin`    | `5`     | columns kept free at the right edge                 |
-| `warn`      | `40`    | context turns yellow ("high") at/above this %       |
-| `compact`   | `50`    | context turns red with `→ /compact` at/above this % |
-| `usageWarn` | `70`    | usage widgets turn yellow at/above this %           |
-| `usageCrit` | `90`    | usage widgets turn red at/above this %              |
-
-## Widgets
-
-Each widget reads one part of the JSON payload Claude Code sends on stdin, and you pick
-each one by name. A widget with no data removes itself, and a row left with nothing on
-it is skipped.
-
-Each widget has a **data type**, and the type decides how it can be drawn: any
-percentage can be a bar, a number, or a gauge; any duration can be short or a clock.
-You choose a drawing (a **presentation**) with the item's variant, and set color the
-same way:
+Show usage as bars instead of numbers:
 
 ```jsonc
-"branch"                                  // default
-["model", "cyan"]                         // color
-["session", "bar"]                        // a percent drawn as a bar
-["context", { "variant": "gauge", "color": "yellow" }]
+{ "left": ["branch", "context"], "right": [["session", "bar"], ["weekly", "bar"]] }
 ```
 
-| Widget     | Example                             | Displays                | Type       |
-| ---------- | ----------------------------------- | ----------------------- | ---------- |
-| `branch`   | `⎇ main`                            | git branch              | `label`    |
-| `model`    | `Opus 4.8`                          | model name              | `label`    |
-| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | model context           | `percent`  |
-| `session`  | `session 61% (↻2h11m)`              | session usage and reset | `percent`  |
-| `weekly`   | `All 74%`                           | weekly usage            | `percent`  |
-| `cost`     | `$2.69`                             | session cost            | `money`    |
-| `duration` | `37m`                               | wall-clock this session | `duration` |
-| `lines`    | `+156 -23`                          | lines added/removed     | `delta`    |
-| `pr`       | `PR #702`                           | open PR number          | `label`    |
-| `review`   | `pending`                           | PR review state         | `label`    |
-| `worktree` | `⌂ hotfix`                          | linked worktree         | `label`    |
-| `cwd`      | `~/Development/dashline`            | working directory       | `label`    |
-| `repo`     | `dashline`                          | repository name         | `label`    |
-| `effort`   | `high`                              | reasoning effort        | `label`    |
-| `name`     | `celestial-vega`                    | session name            | `label`    |
-| `output`   | `/default`                          | output style            | `label`    |
-| `version`  | `v2.1.90`                           | Claude Code version     | `label`    |
-| `fast`     | `fast`                              | fast mode               | `flag`     |
-| `thinking` | `thinking`                          | extended thinking       | `flag`     |
-| `vim`      | `NORMAL`                            | vim mode                | `label`    |
-| `agent`    | `security-reviewer`                 | active subagent         | `label`    |
-
-`context`, `session`, and `weekly` color themselves by fill (green to red); the usage
-pair appears on Pro and Max once the payload carries rate limits. Anything not in this
-list runs as a shell command (see [Examples](#examples)).
-
-## Presentations
-
-A type decides how its widgets can be drawn, so a drawing works by type, not by widget:
-`["session", "bar"]` and `["cost", "cents"]` both do what they say. Set it with the
-item's variant. The first presentation in each row is the default.
-
-| Type       | Presentations                                                                                                                |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `percent`  | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
-| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`)                                                                       |
-| `money`    | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`)                                                                            |
-| `delta`    | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`)                                                                        |
-| `label`    | `text`, `basename`, `upper`, `lower`, `truncate:N`                                                                           |
-| `flag`     | `on` (hidden when off), `onoff` (`fast:off`)                                                                                 |
-
-For `percent`, the default is the fuller line (number, bar, tokens, and countdown as
-each is available), which is why `context` and `session` look richer than a bare `bar`.
-
-## Data options
-
-The object form of an item also carries data options, which change what a widget shows
-rather than how. Combine them with `variant`, `bar`, and `color`.
+A compact, numbers-only line:
 
 ```jsonc
-["session", { "label": "5h", "countdown": false, "warn": 50, "crit": 80, "bar": "fine", "width": 16 }]
-["branch", { "truncate": 12 }]
+["branch", ["context", "pct"], ["session", "pct"]]
 ```
 
-| Option         | Types   | Effect                                                           |
-| -------------- | ------- | ---------------------------------------------------------------- |
-| `label`        | percent | rename the prefix, such as `session` to `5h`                     |
-| `countdown`    | percent | set `false` to drop the reset countdown                          |
-| `warn`, `crit` | percent | color thresholds for this item, above the global ones            |
-| `width`        | percent | bar width in columns                                             |
-| `bar`          | percent | bar glyph style (see [bar styles](#bar-styles))                  |
-| `truncate`     | label   | shorten the text to N characters with an ellipsis                |
-| `icon`         | label   | a glyph placed before the text                                   |
-| `color`        | any     | a fixed color (see [Styles](#styles))                            |
-| `variant`      | any     | which presentation to draw (see [Presentations](#presentations)) |
+Put your own tool on its own row. Command rows get the payload on stdin plus
+`$DASHLINE_BRANCH`, `$DASHLINE_WORKTREE`, and `$DASHLINE_CWD`:
 
-## Styles
+```jsonc
+[
+  { "left": ["branch", "context"], "right": ["session", "weekly"] },
+  ["kache stat --branch \"$DASHLINE_BRANCH\""]
+]
+```
 
-A style term is one or more of these words, so `"bold red"` is valid:
+Rename and trim a widget with data options:
+
+```jsonc
+["session", { "label": "5h", "countdown": false, "bar": "fine", "width": 16 }]
+```
+
+## Reference
+
+### Widgets
+
+Every widget reads one field of the payload and has a data type; the type decides how it
+can be drawn. A widget with no data hides itself, and a row left empty is skipped.
+Anything not listed here runs as a shell command.
+
+| Widget | Example | Displays | Type |
+|---|---|---|---|
+| `branch` | `⎇ main` | git branch | label |
+| `model` | `Opus 4.8` | model name | label |
+| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | model context | percent |
+| `session` | `session 61% (↻2h11m)` | session usage and reset | percent |
+| `weekly` | `All 74%` | weekly usage | percent |
+| `cost` | `$2.69` | session cost | money |
+| `duration` | `37m` | wall-clock this session | duration |
+| `lines` | `+156 -23` | lines added and removed | delta |
+| `pr` | `PR #702` | open PR number | label |
+| `review` | `pending` | PR review state | label |
+| `worktree` | `⌂ hotfix` | linked worktree | label |
+| `cwd` | `~/Development/dashline` | working directory | label |
+| `repo` | `dashline` | repository name | label |
+| `effort` | `high` | reasoning effort | label |
+| `name` | `celestial-vega` | session name | label |
+| `output` | `/default` | output style | label |
+| `version` | `v2.1.90` | Claude Code version | label |
+| `fast` | `fast` | fast mode | flag |
+| `thinking` | `thinking` | extended thinking | flag |
+| `vim` | `NORMAL` | vim mode | label |
+| `agent` | `security-reviewer` | active subagent | label |
+
+`context`, `session`, and `weekly` color themselves by fill (green to red). The usage
+pair appears on Pro and Max once the payload carries rate limits.
+
+### Presentations, by type
+
+The type sets the drawings a widget can take, so a drawing works by type, not by widget:
+`["session", "bar"]` and `["cost", "cents"]` both do what they say. Pass it as the item's
+variant. The first in each row is the default.
+
+| Type | Presentations |
+|---|---|
+| `percent` | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
+| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`) |
+| `money` | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`) |
+| `delta` | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`) |
+| `label` | `text`, `basename`, `upper`, `lower`, `truncate:N` |
+| `flag` | `on` (hidden when off), `onoff` (`fast:off`) |
+
+For `percent`, the default is the fuller line (number, bar, tokens, and countdown as each
+is available), which is why `context` and `session` look richer than a bare `bar`.
+
+### Data options
+
+Object-form keys that change what a widget shows rather than how. Combine them with
+`variant`, `bar`, and `color`.
+
+| Option | Types | Effect |
+|---|---|---|
+| `label` | percent | rename the prefix, such as `session` to `5h` |
+| `countdown` | percent | set `false` to drop the reset countdown |
+| `warn`, `crit` | percent | color thresholds for this item, above the global ones |
+| `width` | percent | bar width in columns |
+| `bar` | percent | bar glyph style (see [bar styles](#bar-styles)) |
+| `truncate` | label | shorten the text to N characters with an ellipsis |
+| `icon` | label | a glyph placed before the text |
+| `color` | any | a fixed color (see below) |
+| `variant` | any | which presentation to draw |
+
+### Colors
+
+A color term is one or more of these words, so `"bold red"` is valid:
 
 `red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `dim` · `bold`
 
-Recoloring an item replaces its whole look with that color. The color-by-fill widgets
-(`context`, `session`, `weekly`) lose their meaning when you recolor them, so leave
-those alone unless you want a fixed color.
+Recoloring an item replaces its whole look. The color-by-fill widgets (`context`,
+`session`, `weekly`) lose their meaning when you recolor them, so leave those alone
+unless you want a fixed color.
 
 ### Bar styles
 
-Any `percent` bar (context, session, weekly) is drawn with blocks by default. Pick
-another with a `bar` option:
+Any `percent` bar takes a `bar` glyph style. Every style is single-cell, so the bar
+stays the same width whichever you pick.
 
-```jsonc
-["context", { "bar": "fine" }]
-["session", { "variant": "bar", "bar": "line" }]
-```
+| `bar` | 44% of 10 | |
+|---|---|---|
+| `blocks` (default) | `████░░░░░░` | sharp |
+| `shade` | `▓▓▓▓░░░░░░` | softer fill |
+| `line` | `━━━━──────` | thin |
+| `ascii` | `[###-----]` | brackets counted inside the width |
+| `fine` | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
 
-| `bar`              | 44% of 10    |                                     |
-| ------------------ | ------------ | ----------------------------------- |
-| `blocks` (default) | `████░░░░░░` | sharp                               |
-| `shade`            | `▓▓▓▓░░░░░░` | softer fill                         |
-| `line`             | `━━━━──────` | thin                                |
-| `ascii`            | `[###-----]` | brackets counted inside the width   |
-| `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+### Config keys
 
-Every style uses single-cell glyphs, so the bar stays the same width whichever you pick.
+Alongside `lines`, the `dashline` object takes:
 
-## Examples
-
-Two lines, a custom left/right split, and a plain directory row:
-
-```jsonc
-{
-  "dashline": {
-    "lines": [
-      { "left": ["model", "name"], "right": ["output"] },
-      { "left": ["branch", ["context", "pct"]], "right": ["cost", "pr"] },
-      ["cwd"],
-    ],
-  },
-}
-```
-
-Fold in your own tools as command rows. Each command is given the same JSON on stdin,
-plus `DASHLINE_BRANCH`, `DASHLINE_WORKTREE`, and `DASHLINE_CWD` in its environment:
-
-```jsonc
-{
-  "dashline": {
-    "lines": [
-      { "left": ["branch", "context"], "right": ["session", "weekly"] },
-      ["codemap ls --linked"],
-      ["kache stat --branch \"$DASHLINE_BRANCH\""],
-    ],
-  },
-}
-```
+| Key | Default | Effect |
+|---|---|---|
+| `separator` | `·` | drawn dim between items in a zone |
+| `margin` | `5` | columns kept free at the right edge |
+| `warn` | `40` | context turns yellow ("high") at/above this % |
+| `compact` | `50` | context turns red with `→ /compact` at/above this % |
+| `usageWarn` | `70` | usage widgets turn yellow at/above this % |
+| `usageCrit` | `90` | usage widgets turn red at/above this % |
 
 ## How it works
 
@@ -287,9 +252,8 @@ npm run typecheck
 ```
 
 Source is in `src/`: `widgets/` holds one file per field, `present/` draws each data
-type, `render.ts` lays out the zones, `layout.ts` justifies a line, and `config.ts`
-reads and merges settings. Adding a widget is one file plus one line in
-`widgets/registry.ts`.
+type, `render.ts` lays out the zones, `layout.ts` justifies a line, and `config.ts` reads
+and merges settings. Adding a widget is one file plus one line in `widgets/registry.ts`.
 
 ## License
 
