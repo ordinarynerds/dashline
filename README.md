@@ -1,8 +1,7 @@
 # dashline
 
-One status line for Claude Code, configured entirely in `settings.json`. No scripting.
-It ships working (context window on the left, plan usage on the right), and you reshape
-it by listing the fields you want.
+A Claude Code status line configured in `settings.json`. The default shows the context
+window on the left and plan usage on the right. Change it by editing a list of fields.
 
 ![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
@@ -12,14 +11,14 @@ it by listing the fields you want.
 
 ## Why
 
-Two things go wrong in a long Claude Code session: the context window fills up until the
-model starts dropping detail, and you hit a rate limit you never saw coming. dashline
-keeps both on screen, and lets you add anything else in the payload by naming it.
+dashline keeps two numbers on screen: how full the context window is, and how much of the
+session and weekly rate limit is used. Both otherwise live behind the `/usage` command.
+Any other field in the payload can be added by name.
 
 ## Install
 
-A Claude Code plugin can't set the main status line on its own, so either route ends
-with `settings.json` pointing at dashline. The plugin route runs that step for you.
+A Claude Code plugin cannot set the main status line on its own. Both routes below end
+with `settings.json` pointing at dashline; the plugin route does it for you.
 
 ### As a plugin (recommended)
 
@@ -69,32 +68,46 @@ An **item** is one of five shapes:
 A **row** is either a bare array like `["branch", "model"]` (left-aligned), or a
 `{ "left": [...], "center": [...], "right": [...] }` object spread across the width.
 
-That is the entire model. The [reference](#reference) lists every widget and option.
+The [reference](#reference) lists every widget and option.
 
 ## Recipes
 
-Drop any of these into your `dashline.lines`.
+Paste any of these into `dashline.lines`. Each shows the config and how it renders.
 
-Add cost and an open-PR badge to the right:
+**Cost and PR on the right**
 
 ```jsonc
 { "left": ["branch", "model", "context"], "right": ["cost", "pr", "session"] }
 ```
 
-Show usage as bars instead of numbers:
+```text
+⎇ main · Opus 4.8 · 44% ████░░░░░░ (440k/1.0M) · high   $2.69 · PR #702 · session 61% (↻2h10m)
+```
+
+**Usage as bars**
 
 ```jsonc
 { "left": ["branch", "context"], "right": [["session", "bar"], ["weekly", "bar"]] }
 ```
 
-A compact, numbers-only line:
+```text
+⎇ main · 44% ████░░░░░░ (440k/1.0M) · high                    ██████░░░░ · ███████░░░
+```
+
+**Numbers only**
 
 ```jsonc
 ["branch", ["context", "pct"], ["session", "pct"]]
 ```
 
-Put your own tool on its own row. Command rows get the payload on stdin plus
-`$DASHLINE_BRANCH`, `$DASHLINE_WORKTREE`, and `$DASHLINE_CWD`:
+```text
+⎇ main · 44% · 61%
+```
+
+**Your own tool on its own row**
+
+Command rows get the payload on stdin plus `$DASHLINE_BRANCH`, `$DASHLINE_WORKTREE`, and
+`$DASHLINE_CWD`. The second line here is whatever the command prints.
 
 ```jsonc
 [
@@ -103,10 +116,19 @@ Put your own tool on its own row. Command rows get the payload on stdin plus
 ]
 ```
 
-Rename and trim a widget with data options:
+```text
+⎇ main · 44% ████░░░░░░ (440k/1.0M) · high             session 61% (↻2h10m) · All 74%
+kache main 94% hot (saved 3m12s)
+```
+
+**Rename and trim a widget**
 
 ```jsonc
-["session", { "label": "5h", "countdown": false, "bar": "fine", "width": 16 }]
+{ "left": [["session", { "label": "5h", "countdown": false, "bar": "fine", "width": 16 }]] }
+```
+
+```text
+5h 61% █████████▊░░░░░░
 ```
 
 ## Reference
@@ -146,9 +168,8 @@ pair appears on Pro and Max once the payload carries rate limits.
 
 ### Presentations, by type
 
-The type sets the drawings a widget can take, so a drawing works by type, not by widget:
-`["session", "bar"]` and `["cost", "cents"]` both do what they say. Pass it as the item's
-variant. The first in each row is the default.
+A presentation works by type, not by widget: any `percent` widget takes any `percent`
+presentation. Pass it as the item's variant. The first in each row is the default.
 
 | Type | Presentations |
 |---|---|
@@ -159,8 +180,8 @@ variant. The first in each row is the default.
 | `label` | `text`, `basename`, `upper`, `lower`, `truncate:N` |
 | `flag` | `on` (hidden when off), `onoff` (`fast:off`) |
 
-For `percent`, the default is the fuller line (number, bar, tokens, and countdown as each
-is available), which is why `context` and `session` look richer than a bare `bar`.
+The `percent` default draws the number, bar, tokens, and countdown when each is present.
+The reductive presentations (`bar`, `pct`, `tokens`) draw only that part.
 
 ### Data options
 
@@ -185,9 +206,8 @@ A color term is one or more of these words, so `"bold red"` is valid:
 
 `red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `dim` · `bold`
 
-Recoloring an item replaces its whole look. The color-by-fill widgets (`context`,
-`session`, `weekly`) lose their meaning when you recolor them, so leave those alone
-unless you want a fixed color.
+A color on an item overrides its default styling. `context`, `session`, and `weekly`
+normally color themselves by fill; a fixed color removes that signal.
 
 ### Bar styles
 
@@ -217,18 +237,17 @@ Alongside `lines`, the `dashline` object takes:
 
 ## How it works
 
-Claude Code hands the status-line command a JSON payload on stdin. dashline reads it,
-reads your `dashline` config from the settings files, and prints one line per entry in
-`lines`. No network, no transcript parsing, nothing that drifts between releases.
+Claude Code passes the status-line command a JSON payload on stdin. dashline reads it,
+reads the `dashline` config from the settings files, and prints one line per entry in
+`lines`. It makes no network calls and does not read the transcript.
 
-Each widget is a small pure function from the payload to a typed value, and a presenter
-draws that value. The git branch and worktree are the one thing not in the payload, so
-dashline asks `git` once. A command item runs under a 2-second timeout, so a slow tool
-can't stall the line.
+Each widget is a pure function from the payload to a typed value, which a presenter draws.
+The git branch and worktree are not in the payload, so dashline runs `git` once. Each
+command item runs under a 2-second timeout.
 
 ## Security
 
-dashline can run shell commands, so it is deliberate about where they come from.
+dashline can run shell commands. Command sources are restricted:
 
 - Command items run only from your own user settings (`~/.claude/settings.json` and
   `~/.claude/settings.local.json`). Config that arrives through a project, such as a
@@ -239,8 +258,8 @@ dashline can run shell commands, so it is deliberate about where they come from.
   branch named like a shell expression cannot inject anything.
 - dashline's own git lookups run without a shell.
 - Each command runs under a 2-second timeout.
-- A command's output is printed as is, including any terminal escapes it emits, so wire
-  up only tools you trust.
+- A command's output is printed as is, including any terminal escapes it emits. Run only
+  tools you trust.
 
 ## Develop
 
