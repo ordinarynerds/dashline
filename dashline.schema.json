@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/ordinarynerds/dashline/main/dashline.schema.json",
+  "title": "Claude Code settings with a dashline block",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "dashline": { "$ref": "#/definitions/dashline" }
+  },
+  "definitions": {
+    "dashline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lines": {
+          "type": "array",
+          "description": "One entry per rendered row.",
+          "items": { "$ref": "#/definitions/line" }
+        },
+        "separator": { "type": "string", "description": "Drawn dim between items in a zone." },
+        "margin": { "type": "number", "description": "Columns kept free at the right edge." },
+        "contextWarningAt": { "type": "number" },
+        "contextCriticalAt": { "type": "number" },
+        "usageWarningAt": { "type": "number" },
+        "usageCriticalAt": { "type": "number" }
+      }
+    },
+    "line": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "A left-aligned row.",
+          "items": { "$ref": "#/definitions/item" }
+        },
+        {
+          "type": "object",
+          "description": "A row spread across left, center, and right zones.",
+          "additionalProperties": false,
+          "properties": {
+            "left": { "type": "array", "items": { "$ref": "#/definitions/item" } },
+            "center": { "type": "array", "items": { "$ref": "#/definitions/item" } },
+            "right": { "type": "array", "items": { "$ref": "#/definitions/item" } }
+          }
+        }
+      ]
+    },
+    "item": {
+      "oneOf": [
+        { "type": "string", "description": "A widget name, or any other string as a shell command." },
+        {
+          "type": "array",
+          "description": "A widget with a color, variant, or options object.",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": [
+            { "type": "string" },
+            { "oneOf": [{ "type": "string" }, { "$ref": "#/definitions/options" }] }
+          ]
+        },
+        {
+          "type": "object",
+          "description": "Literal text.",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": {
+            "text": { "type": "string" },
+            "color": { "type": "string" },
+            "bg": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "type": "string", "description": "A named color, or a hex value like #4EC9D6." },
+        "bg": { "type": "string", "description": "A background color, named or hex." },
+        "variant": { "type": "string" },
+        "bar": { "enum": ["blocks", "shade", "line", "ascii", "fine"] },
+        "label": { "type": "string" },
+        "countdown": { "type": "boolean" },
+        "warningAt": { "type": "number" },
+        "criticalAt": { "type": "number" },
+        "width": { "type": "number" },
+        "truncate": { "type": "number" },
+        "icon": { "type": "string" },
+        "id": { "type": "boolean" }
+      }
+    }
+  }
+}
