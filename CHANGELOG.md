@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/ordinarynerds/dashline/compare/v0.7.0...v0.8.0) (2026-07-24)
+
+
+### Features
+
+* session history with sparkline and burn-rate widgets ([1eceac9](https://github.com/ordinarynerds/dashline/commit/1eceac959c7157a4c73602e9a8bd3708b6f20863))
+
 ## [0.7.0](https://github.com/ordinarynerds/dashline/compare/v0.6.0...v0.7.0) (2026-07-24)
 
 
