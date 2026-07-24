@@ -73,64 +73,34 @@ The [reference](#reference) lists every widget and option.
 
 ## Recipes
 
-Paste into `dashline.lines`.
+Each block is a value for `dashline.lines` and the status line it renders. Paste one into
+your settings.
 
 **Cost and PR on the right**
+
+![Cost and PR on the right](assets/recipes/cost-pr.png)
 
 ```json
 { "left": ["branch", "model", "context"], "right": ["cost", "pr", "session"] }
 ```
 
-```text
-⎇ main · Opus 4.8 · 44% ████░░░░░░ (440k/1.0M) · high   $2.69 · PR #702 · session 61% (↻2h10m)
-```
-
 **Usage as bars**
 
-```json
-{ "left": ["branch", "context"], "right": [["session", "bar"], ["weekly", "bar"]] }
-```
-
-```text
-⎇ main · 44% ████░░░░░░ (440k/1.0M) · high                    ██████░░░░ · ███████░░░
-```
-
-**Numbers only**
+![Usage as bars](assets/recipes/usage-bars.png)
 
 ```json
-["branch", ["context", "pct"], ["session", "pct"]]
+{
+  "left": ["branch", "context"],
+  "right": [
+    ["session", "bar"],
+    ["weekly", "bar"]
+  ]
+}
 ```
 
-```text
-⎇ main · 44% · 61%
-```
-
-**Your own tool on its own row**
-
-Command rows get the payload on stdin plus `$DASHLINE_BRANCH`, `$DASHLINE_WORKTREE`, and
-`$DASHLINE_CWD`. The second line here is whatever the command prints.
-
-```json
-[
-  { "left": ["branch", "context"], "right": ["session", "weekly"] },
-  ["kache stat --branch \"$DASHLINE_BRANCH\""]
-]
-```
-
-```text
-⎇ main · 44% ████░░░░░░ (440k/1.0M) · high             session 61% (↻2h10m) · All 74%
-kache main 94% hot (saved 3m12s)
-```
-
-**Rename and trim a widget**
-
-```json
-{ "left": [["session", { "label": "5h", "countdown": false, "bar": "fine", "width": 16 }]] }
-```
-
-```text
-5h 61% █████████▊░░░░░░
-```
+<p align="center">
+  <a href="RECIPES.md"><img src="https://img.shields.io/badge/Browse%20all%2010%20recipes-%E2%86%92-4EC9D6?style=for-the-badge&labelColor=1C1C20" alt="Browse all 10 recipes"></a>
+</p>
 
 ## Reference
 
@@ -189,17 +159,17 @@ The reductive presentations (`bar`, `pct`, `tokens`) draw only that part.
 Object-form keys that change what a widget shows rather than how. Combine them with
 `variant`, `bar`, and `color`.
 
-| Option         | Types   | Effect                                                |
-| -------------- | ------- | ----------------------------------------------------- |
-| `label`        | percent | rename the prefix, such as `session` to `5h`          |
-| `countdown`    | percent | set `false` to drop the reset countdown               |
+| Option                    | Types   | Effect                                                     |
+| ------------------------- | ------- | ---------------------------------------------------------- |
+| `label`                   | percent | rename the prefix, such as `session` to `5h`               |
+| `countdown`               | percent | set `false` to drop the reset countdown                    |
 | `warningAt`, `criticalAt` | percent | color thresholds for this item, overriding the global ones |
-| `width`        | percent | bar width in columns                                  |
-| `bar`          | percent | bar glyph style (see [bar styles](#bar-styles))       |
-| `truncate`     | label   | shorten the text to N characters with an ellipsis     |
-| `icon`         | label   | a glyph placed before the text                        |
-| `color`        | any     | a fixed color (see below)                             |
-| `variant`      | any     | which presentation to draw                            |
+| `width`                   | percent | bar width in columns                                       |
+| `bar`                     | percent | bar glyph style (see [bar styles](#bar-styles))            |
+| `truncate`                | label   | shorten the text to N characters with an ellipsis          |
+| `icon`                    | label   | a glyph placed before the text                             |
+| `color`                   | any     | a fixed color (see below)                                  |
+| `variant`                 | any     | which presentation to draw                                 |
 
 ### Colors
 
@@ -227,14 +197,14 @@ stays the same width whichever you pick.
 
 Alongside `lines`, the `dashline` object takes:
 
-| Key | Default | Effect |
-|---|---|---|
-| `separator` | `·` | drawn dim between items in a zone |
-| `margin` | `5` | columns kept free at the right edge |
-| `contextWarningAt` | `40` | context turns yellow ("high") at/above this % |
-| `contextCriticalAt` | `50` | context turns red with the `→ /compact` nudge at/above this % |
-| `usageWarningAt` | `70` | usage widgets turn yellow at/above this % |
-| `usageCriticalAt` | `90` | usage widgets turn red at/above this % |
+| Key                 | Default | Effect                                                        |
+| ------------------- | ------- | ------------------------------------------------------------- |
+| `separator`         | `·`     | drawn dim between items in a zone                             |
+| `margin`            | `5`     | columns kept free at the right edge                           |
+| `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                 |
+| `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this % |
+| `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                     |
+| `usageCriticalAt`   | `90`    | usage widgets turn red at/above this %                        |
 
 ## How it works
 
