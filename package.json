@@ -1,6 +1,6 @@
 {
   "name": "dashline",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A simpler Claude Code status line. Configure it in settings.json, no scripting.",
   "type": "module",
   "bin": {
