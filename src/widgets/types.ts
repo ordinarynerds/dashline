@@ -30,6 +30,7 @@ export interface WidgetOpts {
   width?: number
   truncate?: number
   icon?: string
+  id?: boolean
 }
 
 export interface Widget {

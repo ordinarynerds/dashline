@@ -86,6 +86,11 @@ test('session_name and output_style widgets', () => {
   assert.deepEqual(run([['name', 'output']], ctx(full)), ['celestial-vega · /rc'])
 })
 
+test('name with the id option appends the short session id', () => {
+  const p: Payload = { session_name: 'celestial-vega', session_id: 'abcd1234-0000-0000' }
+  assert.deepEqual(run([[['name', { id: true }]]], ctx(p)), ['celestial-vega-abcd1234'])
+})
+
 test('cost-derived widgets: duration and lines', () => {
   const p: Payload = {
     cost: { total_cost_usd: 2.69, total_duration_ms: 2_220_000, total_lines_added: 156, total_lines_removed: 23 },

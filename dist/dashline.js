@@ -167,10 +167,11 @@ var effort = {
 
 // src/widgets/name.ts
 var name = {
-  data({ payload: payload2 }) {
+  data({ payload: payload2 }, opts) {
     const n = payload2.session_name;
     if (!n) return null;
-    return { kind: "label", text: n, color: "dim" };
+    const text = opts.id && payload2.session_id ? `${n}-${payload2.session_id.slice(0, 8)}` : n;
+    return { kind: "label", text, color: "dim" };
   }
 };
 

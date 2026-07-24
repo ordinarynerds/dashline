@@ -25,6 +25,7 @@ export interface Payload {
   }
   effort?: { level?: string }
   session_name?: string
+  session_id?: string
   output_style?: { name?: string }
   pr?: { number?: number; url?: string; review_state?: string }
   version?: string
