@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/ordinarynerds/dashline/compare/v0.4.0...v0.5.0) (2026-07-24)
+
+
+### Features
+
+* support hex colors for 24-bit truecolor ([1920e6a](https://github.com/ordinarynerds/dashline/commit/1920e6a440d91a5655441d9245f30aa6486ab5a1))
+
+
+### Bug Fixes
+
+* count wide and zero-width characters for correct alignment ([742d978](https://github.com/ordinarynerds/dashline/commit/742d9787b8a23679841f6c4c86fe1f749a2e38ea))
+
 ## [0.4.0](https://github.com/ordinarynerds/dashline/compare/v0.3.0...v0.4.0) (2026-07-24)
 
 
