@@ -64,6 +64,35 @@ check "git branch shown for a repo dir" \
 git_out=$(printf '%s' '{"model":{"display_name":"Opus 4.8"},"workspace":{"current_dir":"/"},"context_window":{"used_percentage":10,"total_input_tokens":100000,"context_window_size":1000000}}' | DASHLINE_GIT=0 COLUMNS=130 "$SL" | plain)
 if printf '%s' "$git_out" | grep -qF '⎇'; then fail=$((fail+1)); printf '  FAIL git hidden with DASHLINE_GIT=0\n'; else pass=$((pass+1)); printf '  ok   git hidden with DASHLINE_GIT=0\n'; fi
 
+# ---- extra-line plugins: a drop-in script prints verbatim below the core line
+xdir=$(mktemp -d 2>/dev/null || echo "/tmp/dashline-xtra.$$")
+mkdir -p "$xdir"
+# an executable that echoes a marker plus the exported context
+cat > "$xdir/50-marker.sh" <<'PLUGIN'
+#!/usr/bin/env bash
+printf 'XTRA branch=%s pct=%s\n' "${DASHLINE_BRANCH:-none}" "${DASHLINE_PCT:-none}"
+PLUGIN
+chmod +x "$xdir/50-marker.sh"
+# a non-executable file in the same dir must be ignored
+printf 'should not run\n' > "$xdir/99-notexec.txt"
+
+xpay='{"model":{"display_name":"Opus 4.8"},"workspace":{"current_dir":"/"},"context_window":{"used_percentage":33,"total_input_tokens":330000,"context_window_size":1000000}}'
+
+xout=$(printf '%s' "$xpay" | DASHLINE_GIT=0 DASHLINE_EXTRA_DIR="$xdir" COLUMNS=130 "$SL" | plain)
+if printf '%s' "$xout" | grep -qF 'XTRA branch=none pct=33'; then pass=$((pass+1)); printf '  ok   extra-line script prints below core with exported context\n'; else fail=$((fail+1)); printf '  FAIL extra-line script\n       got: %s\n' "$xout"; fi
+
+# the core line must still be line 1; the extra line comes after it
+if [ "$(printf '%s\n' "$xout" | sed -n 2p | grep -cF 'XTRA')" = "1" ]; then pass=$((pass+1)); printf '  ok   extra line is placed below the core line\n'; else fail=$((fail+1)); printf '  FAIL extra line placement\n       got: %s\n' "$xout"; fi
+
+# non-executable file is ignored
+if printf '%s' "$xout" | grep -qF 'should not run'; then fail=$((fail+1)); printf '  FAIL non-executable file was run\n'; else pass=$((pass+1)); printf '  ok   non-executable file in extra dir is ignored\n'; fi
+
+# DASHLINE_EXTRA=0 disables the mechanism
+xoff=$(printf '%s' "$xpay" | DASHLINE_GIT=0 DASHLINE_EXTRA=0 DASHLINE_EXTRA_DIR="$xdir" COLUMNS=130 "$SL" | plain)
+if printf '%s' "$xoff" | grep -qF 'XTRA'; then fail=$((fail+1)); printf '  FAIL extra lines shown with DASHLINE_EXTRA=0\n'; else pass=$((pass+1)); printf '  ok   extra lines hidden with DASHLINE_EXTRA=0\n'; fi
+
+rm -rf "$xdir" 2>/dev/null
+
 echo "-----"
 printf '%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

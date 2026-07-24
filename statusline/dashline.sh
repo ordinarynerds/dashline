@@ -24,6 +24,9 @@
 #   DASHLINE_GIT         set to 0 to hide the git branch/worktree  (default 1/on)
 #   DASHLINE_COLS        override terminal width for justification (default auto)
 #   DASHLINE_MARGIN      cols kept free at the right edge          (default 5)
+#   DASHLINE_EXTRA       set to 0 to skip user extra-line scripts  (default 1/on)
+#   DASHLINE_EXTRA_DIR   dir of executable extra-line scripts,     (default
+#                        each run per refresh, stdout below core     ~/.claude/dashline.d)
 set -u
 
 input=$(cat 2>/dev/null)
@@ -35,6 +38,8 @@ USAGE_WARN=${DASHLINE_USAGE_WARN:-70}
 USAGE_CRIT=${DASHLINE_USAGE_CRIT:-90}
 SHOW_USAGE=${DASHLINE_USAGE:-1}
 SHOW_GIT=${DASHLINE_GIT:-1}
+SHOW_EXTRA=${DASHLINE_EXTRA:-1}
+EXTRA_DIR=${DASHLINE_EXTRA_DIR:-"${HOME}/.claude/dashline.d"}
 
 GRN=$'\033[32m'; YEL=$'\033[33m'; RED=$'\033[1;31m'; CYN=$'\033[36m'
 DIM=$'\033[2m'; BOLD=$'\033[1m'; RST=$'\033[0m'
@@ -204,3 +209,35 @@ else
     printf '%s%*s%s\n' "$left" "$gap" '' "$right"
   fi
 fi
+
+# ============================ extra lines (user plugins) =====================
+# Drop-in dir: every executable in $EXTRA_DIR runs once per refresh, is fed the
+# same JSON payload on stdin, and has its stdout printed verbatim below the core
+# line, in filename-sort order. Each script owns its own line(s), width, and
+# color. dashline exports what it already parsed so scripts need not re-parse:
+#   DASHLINE_CWD  DASHLINE_BRANCH  DASHLINE_WORKTREE  DASHLINE_PCT
+# Each run is wrapped in a short timeout (when available) so a slow or hung
+# script can't stall the status line. Disable the whole mechanism with
+# DASHLINE_EXTRA=0.
+case "$SHOW_EXTRA" in
+  1|true|TRUE|yes|on)
+    if [ -d "$EXTRA_DIR" ]; then
+      TIMEOUT=""
+      command -v timeout  >/dev/null 2>&1 && TIMEOUT="timeout 2"
+      command -v gtimeout >/dev/null 2>&1 && TIMEOUT="gtimeout 2"
+      export DASHLINE_CWD="${dir:-}"
+      export DASHLINE_BRANCH="${branch:-}"
+      export DASHLINE_WORKTREE="${wt:-}"
+      export DASHLINE_PCT="${p_int:-}"
+      for f in "$EXTRA_DIR"/*; do
+        [ -f "$f" ] && [ -x "$f" ] || continue     # skip the literal glob and non-execs
+        if [ -n "$TIMEOUT" ]; then
+          xout=$(printf '%s' "$input" | $TIMEOUT "$f" 2>/dev/null)
+        else
+          xout=$(printf '%s' "$input" | "$f" 2>/dev/null)
+        fi
+        [ -n "$xout" ] && printf '%s\n' "$xout"
+      done
+    fi
+    ;;
+esac

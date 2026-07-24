@@ -107,8 +107,47 @@ picks up your environment, or edit the defaults at the top of `dashline.sh`.
 | `DASHLINE_GIT`          | `1`     | set to `0` to hide the git branch/worktree    |
 | `DASHLINE_MARGIN`       | `5`     | columns left free at the right edge           |
 | `DASHLINE_COLS`         | auto    | override terminal width for justification     |
+| `DASHLINE_EXTRA`        | `1`     | set to `0` to skip extra-line scripts         |
+| `DASHLINE_EXTRA_DIR`    | `~/.claude/dashline.d` | directory of extra-line scripts  |
 
 If the right half ever gets cut off with a `…`, raise `DASHLINE_MARGIN`.
+
+## Extra lines
+
+dashline prints one line. If you want more on screen, drop your own scripts into
+`~/.claude/dashline.d/` and each one adds a line (or lines) below the core one.
+
+Any executable file in that directory runs once per refresh. dashline pipes it the
+same JSON payload it got on stdin, then prints whatever the script writes to
+stdout, verbatim, below the core line. Scripts run in filename order, so name them
+`10-worktree`, `20-codemap`, `30-cache` to fix the stacking.
+
+A script owns its own line. Print two lines and you get two rows, which is how a
+project linker or a per-branch build cache expands to as many rows as it needs.
+
+So you don't have to re-parse the payload, dashline exports what it already
+figured out:
+
+| Variable            | What it holds                                    |
+|---------------------|--------------------------------------------------|
+| `DASHLINE_CWD`      | the workspace directory                          |
+| `DASHLINE_BRANCH`   | current branch (short SHA if detached)           |
+| `DASHLINE_WORKTREE` | worktree folder name, empty in the main checkout |
+| `DASHLINE_PCT`      | context-window percent, as an integer            |
+
+`examples/dashline.d/10-worktree.sh` is a working starter: it prints the working
+directory and flags it when you're in a linked worktree. Copy it in and make it
+executable:
+
+```bash
+mkdir -p ~/.claude/dashline.d
+cp examples/dashline.d/10-worktree.sh ~/.claude/dashline.d/
+chmod +x ~/.claude/dashline.d/10-worktree.sh
+```
+
+Each run is wrapped in a short timeout wherever `timeout` or `gtimeout` is present,
+so a slow script won't stall the line. Set `DASHLINE_EXTRA=0` to turn the whole
+thing off, or `DASHLINE_EXTRA_DIR` to point it somewhere else.
 
 ## How it works
 
