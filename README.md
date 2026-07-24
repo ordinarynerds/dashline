@@ -223,6 +223,7 @@ Alongside `lines`, the `dashline` object takes:
 | ------------------- | ------- | ------------------------------------------------------------- |
 | `separator`         | `·`     | drawn dim between items in a zone                             |
 | `margin`            | `5`     | columns kept free at the right edge                           |
+| `powerline`         | `false` | draw each zone as arrow-joined segments (needs a Nerd Font)   |
 | `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                 |
 | `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this % |
 | `usageWarningAt`    | `70`    | usage widgets turn yellow at/above this %                     |

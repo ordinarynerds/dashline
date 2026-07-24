@@ -26,7 +26,7 @@ export function paint(text: string, term?: StyleTerm, bg?: string): string {
   const codes: string[] = []
   if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c): c is string => c !== null))
   if (bg) {
-    const b = bgCodesFor(bg)
+    const b = bgCode(bg)
     if (b) codes.push(b)
   }
   if (codes.length === 0) return text
@@ -34,11 +34,25 @@ export function paint(text: string, term?: StyleTerm, bg?: string): string {
 }
 
 // A background color: a hex value or one of the named colors (not the attributes).
-function bgCodesFor(word: string): string | null {
+export function bgCode(word: string): string | null {
   const rgb = hex(word)
   if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`
   const fg = CODES[word]
   return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null
+}
+
+// Turn a background SGR code into the matching foreground code (for powerline arrows).
+export function bgToFg(bg: string): string {
+  if (bg.startsWith('48;2;')) return `38;2;${bg.slice(5)}`
+  const n = Number(bg)
+  return Number.isFinite(n) ? String(n - 10) : bg
+}
+
+// Apply a background across a string, reopening it after every internal reset so nested
+// foreground colors do not drop the fill.
+export function fill(text: string, bg: string): string {
+  const open = `\x1b[${bg}m`
+  return open + text.split(RESET).join(`${RESET}${open}`) + RESET
 }
 
 export function isStyle(term: string): boolean {

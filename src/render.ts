@@ -3,7 +3,8 @@ import type { Ctx, WidgetOpts } from './widgets/types.ts'
 import { registry } from './widgets/registry.ts'
 import { present } from './present/index.ts'
 import { compose } from './layout.ts'
-import { paint, isStyle, sanitize } from './style.ts'
+import { powerlineZone } from './powerline.ts'
+import { paint, isStyle, sanitize, bgCode } from './style.ts'
 
 export function render(config: DashlineConfig, ctx: Ctx, columns: number): string[] {
   const sep = ` ${paint(sanitize(config.separator), 'dim')} `
@@ -17,21 +18,30 @@ export function render(config: DashlineConfig, ctx: Ctx, columns: number): strin
 
 function renderLine(line: LineSpec, ctx: Ctx, config: DashlineConfig, columns: number, sep: string): string | null {
   const zones = Array.isArray(line) ? { left: line } : line
-  const left = renderZone(zones.left, ctx, sep)
-  const center = renderZone(zones.center, ctx, sep)
-  const right = renderZone(zones.right, ctx, sep)
+  const left = renderZone(zones.left, ctx, sep, config.powerline)
+  const center = renderZone(zones.center, ctx, sep, config.powerline)
+  const right = renderZone(zones.right, ctx, sep, config.powerline)
   if (!left && !center && !right) return null
   return compose(left, center, right, columns, config.margin)
 }
 
-function renderZone(items: Item[] | undefined, ctx: Ctx, sep: string): string {
+function renderZone(items: Item[] | undefined, ctx: Ctx, sep: string, powerline: boolean): string {
   if (!items) return ''
-  const parts: string[] = []
+  const segs: { text: string; bg: string | null }[] = []
   for (const item of items) {
-    const rendered = renderItem(item, ctx)
-    if (rendered) parts.push(rendered)
+    const text = renderItem(item, ctx)
+    if (!text) continue
+    const word = itemBg(item)
+    segs.push({ text, bg: word ? bgCode(word) : null })
   }
-  return parts.join(sep)
+  if (segs.length === 0) return ''
+  return powerline ? powerlineZone(segs) : segs.map((s) => s.text).join(sep)
+}
+
+function itemBg(item: Item): string | undefined {
+  if (typeof item === 'string') return undefined
+  if (Array.isArray(item)) return typeof item[1] === 'object' ? item[1].bg : undefined
+  return item.bg
 }
 
 function renderItem(item: Item, ctx: Ctx): string | null {

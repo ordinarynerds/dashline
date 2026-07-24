@@ -9,6 +9,7 @@ import type { Payload } from '../src/payload.ts'
 const base: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
+  powerline: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,
@@ -154,6 +155,15 @@ test('a { text } item renders literal text alongside widgets', () => {
 test('a { text } item takes a color and an empty one is dropped', () => {
   assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /\[31m/)
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
+})
+
+test('powerline mode wraps zone items in arrow-joined segments', () => {
+  const arrow = String.fromCodePoint(0xe0b0)
+  const out = render({ ...base, powerline: true, lines: [['model', 'name']] }, ctx({ model: { display_name: 'Opus' }, session_name: 'vega' }), 80)
+  const bare = strip(out[0]!)
+  assert.ok(bare.includes(arrow))
+  assert.ok(bare.includes(' Opus '))
+  assert.ok(bare.includes(' vega '))
 })
 
 test('a text item and a widget label can take a background color', () => {

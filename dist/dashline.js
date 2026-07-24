@@ -248,6 +248,7 @@ var widgetNames = new Set(Object.keys(registry));
 var DEFAULTS = {
   separator: "\xB7",
   margin: 5,
+  powerline: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,
@@ -440,17 +441,26 @@ function paint(text, term, bg) {
   const codes = [];
   if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c) => c !== null));
   if (bg) {
-    const b = bgCodesFor(bg);
+    const b = bgCode(bg);
     if (b) codes.push(b);
   }
   if (codes.length === 0) return text;
   return `\x1B[${codes.join(";")}m${text}${RESET}`;
 }
-function bgCodesFor(word) {
+function bgCode(word) {
   const rgb = hex(word);
   if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
   const fg = CODES[word];
   return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null;
+}
+function bgToFg(bg) {
+  if (bg.startsWith("48;2;")) return `38;2;${bg.slice(5)}`;
+  const n = Number(bg);
+  return Number.isFinite(n) ? String(n - 10) : bg;
+}
+function fill(text, bg) {
+  const open = `\x1B[${bg}m`;
+  return open + text.split(RESET).join(`${RESET}${open}`) + RESET;
 }
 function isStyle(term) {
   return term.split(/\s+/).every((word) => codesFor(word) !== null);
@@ -484,8 +494,8 @@ function bar(pct, width, style = "blocks") {
   if (style === "fine") return fine(ratio, width);
   const set = SETS[style] ?? SETS.blocks;
   const inner = set.wrap ? Math.max(0, width - 2) : width;
-  const fill = Math.round(ratio * inner);
-  const body = set.full.repeat(fill) + set.empty.repeat(inner - fill);
+  const fill2 = Math.round(ratio * inner);
+  const body = set.full.repeat(fill2) + set.empty.repeat(inner - fill2);
   return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
 }
 function fine(ratio, width) {
@@ -644,6 +654,35 @@ function visibleWidth(text) {
   for (const ch of text.replace(ANSI, "")) width += charWidth(ch.codePointAt(0));
   return width;
 }
+function clip(text, width) {
+  if (width <= 0) return "";
+  if (visibleWidth(text) <= width) return text;
+  const budget = width - 1;
+  let out = "";
+  let used = 0;
+  let styled = false;
+  for (let i = 0; i < text.length; ) {
+    if (text[i] === "\x1B") {
+      let end = text.indexOf("m", i);
+      if (end === -1) end = text.length - 1;
+      const seq = text.slice(i, end + 1);
+      out += seq;
+      const codes = seq.slice(2, seq.length - 1);
+      styled = codes !== "" && codes !== "0";
+      i = end + 1;
+      continue;
+    }
+    const cp = text.codePointAt(i);
+    const w = charWidth(cp);
+    if (used + w > budget) break;
+    out += String.fromCodePoint(cp);
+    used += w;
+    i += String.fromCodePoint(cp).length;
+  }
+  out += "\u2026";
+  if (styled) out += "\x1B[0m";
+  return out;
+}
 function charWidth(cp) {
   if (cp === 8203 || cp === 8205 || cp === 65279 || cp >= 768 && cp <= 879 || cp >= 6832 && cp <= 6911 || cp >= 7616 && cp <= 7679 || cp >= 8400 && cp <= 8447 || cp >= 65024 && cp <= 65039 || cp >= 65056 && cp <= 65071)
     return 0;
@@ -654,17 +693,14 @@ function charWidth(cp) {
 
 // src/layout.ts
 function compose(left, center, right, columns2, margin) {
-  if (!center && !right) return left;
   const target = columns2 - margin;
+  if (!center && !right) return clip(left, target);
   const lw = visibleWidth(left);
-  const cw = visibleWidth(center);
   const rw = visibleWidth(right);
-  if (!center) {
-    const gap = target - lw - rw;
-    return gap < 3 ? `${left}   ${right}` : left + " ".repeat(gap) + right;
-  }
+  if (!center) return leftRight(left, lw, right, rw, target);
+  const cw = visibleWidth(center);
   const free = target - lw - cw - rw;
-  if (free < 4) return [left, center, right].filter(Boolean).join("   ");
+  if (free < 4) return leftRight(left, lw, right, rw, target);
   let gapLeft = Math.floor((target - cw) / 2) - lw;
   let gapRight = target - rw - (Math.floor((target - cw) / 2) + cw);
   if (gapLeft < 1 || gapRight < 1) {
@@ -672,6 +708,30 @@ function compose(left, center, right, columns2, margin) {
     gapRight = free - gapLeft;
   }
   return left + " ".repeat(gapLeft) + center + " ".repeat(gapRight) + right;
+}
+function leftRight(left, lw, right, rw, target) {
+  const gap = target - lw - rw;
+  if (gap >= 1) return left + " ".repeat(gap) + right;
+  if (rw >= target) return clip(right, target);
+  return clip(left, target - rw - 1) + " " + right;
+}
+
+// src/powerline.ts
+var ARROW = String.fromCodePoint(57520);
+var AUTO_BG = ["#3b3b3b", "#2f2f2f"];
+function powerlineZone(segs) {
+  const resolved2 = segs.map((s, i) => ({
+    text: s.text,
+    bg: s.bg ?? bgCode(AUTO_BG[i % AUTO_BG.length])
+  }));
+  let out = "";
+  resolved2.forEach((s, i) => {
+    out += fill(` ${s.text} `, s.bg);
+    const next = resolved2[i + 1];
+    const fg = bgToFg(s.bg);
+    out += next ? `\x1B[${fg};${next.bg}m${ARROW}\x1B[0m` : `\x1B[${fg}m${ARROW}\x1B[0m`;
+  });
+  return out;
 }
 
 // src/render.ts
@@ -686,20 +746,28 @@ function render(config2, ctx2, columns2) {
 }
 function renderLine(line, ctx2, config2, columns2, sep) {
   const zones = Array.isArray(line) ? { left: line } : line;
-  const left = renderZone(zones.left, ctx2, sep);
-  const center = renderZone(zones.center, ctx2, sep);
-  const right = renderZone(zones.right, ctx2, sep);
+  const left = renderZone(zones.left, ctx2, sep, config2.powerline);
+  const center = renderZone(zones.center, ctx2, sep, config2.powerline);
+  const right = renderZone(zones.right, ctx2, sep, config2.powerline);
   if (!left && !center && !right) return null;
   return compose(left, center, right, columns2, config2.margin);
 }
-function renderZone(items, ctx2, sep) {
+function renderZone(items, ctx2, sep, powerline) {
   if (!items) return "";
-  const parts = [];
+  const segs = [];
   for (const item of items) {
-    const rendered = renderItem(item, ctx2);
-    if (rendered) parts.push(rendered);
+    const text = renderItem(item, ctx2);
+    if (!text) continue;
+    const word = itemBg(item);
+    segs.push({ text, bg: word ? bgCode(word) : null });
   }
-  return parts.join(sep);
+  if (segs.length === 0) return "";
+  return powerline ? powerlineZone(segs) : segs.map((s) => s.text).join(sep);
+}
+function itemBg(item) {
+  if (typeof item === "string") return void 0;
+  if (Array.isArray(item)) return typeof item[1] === "object" ? item[1].bg : void 0;
+  return item.bg;
 }
 function renderItem(item, ctx2) {
   if (typeof item === "object" && !Array.isArray(item)) {

@@ -19,6 +19,7 @@
         },
         "separator": { "type": "string", "description": "Drawn dim between items in a zone." },
         "margin": { "type": "number", "description": "Columns kept free at the right edge." },
+        "powerline": { "type": "boolean", "description": "Draw each zone as arrow-joined powerline segments. Needs a Nerd Font." },
         "contextWarningAt": { "type": "number" },
         "contextCriticalAt": { "type": "number" },
         "usageWarningAt": { "type": "number" },

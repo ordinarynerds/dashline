@@ -25,6 +25,7 @@ export interface DashlineConfig {
   lines: LineSpec[]
   separator: string
   margin: number
+  powerline: boolean
   contextWarningAt: number
   contextCriticalAt: number
   usageWarningAt: number
@@ -34,6 +35,7 @@ export interface DashlineConfig {
 const DEFAULTS: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
+  powerline: false,
   contextWarningAt: 40,
   contextCriticalAt: 50,
   usageWarningAt: 70,
