@@ -56,9 +56,12 @@ and writing it out reproduces what ships:
 {
   "dashline": {
     "lines": [
-      { "left": ["branch", "model", "context"], "right": ["session", "weekly"] }
-    ]
-  }
+      {
+        "left": ["branch", "model", "context"],
+        "right": ["session", "weekly"],
+      },
+    ],
+  },
 }
 ```
 
@@ -78,27 +81,27 @@ or an object with up to three zones that dashline spreads across the width:
 
 **An item** in a zone is one of:
 
-| Form | Meaning |
-|---|---|
-| `"branch"` | a widget, in its default style |
-| `["model", "red"]` | a widget, recolored (see [styles](#styles)) |
-| `["context", "bar"]` | a widget, in a named variant (see [widgets](#widgets)) |
-| `["context", { "variant": "bar", "color": "yellow" }]` | variant and color together |
-| `"codemap ls --linked"` | anything unrecognized runs as a shell command; its first line of output is shown |
+| Form                                                   | Meaning                                                                          |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `"branch"`                                             | a widget, in its default style                                                   |
+| `["model", "red"]`                                     | a widget, recolored (see [styles](#styles))                                      |
+| `["context", "bar"]`                                   | a widget, in a named variant (see [widgets](#widgets))                           |
+| `["context", { "variant": "bar", "color": "yellow" }]` | variant and color together                                                       |
+| `"codemap ls --linked"`                                | anything unrecognized runs as a shell command; its first line of output is shown |
 
 A string is read as a color when it is a known style term, otherwise as a variant, so
 `["model", "red"]` and `["context", "pct"]` both do what they look like.
 
 ### Other keys
 
-| Key | Default | Effect |
-|---|---|---|
-| `separator` | `·` | drawn dim between items in a zone |
-| `margin` | `5` | columns kept free at the right edge |
-| `warn` | `40` | context turns yellow ("high") at/above this % |
-| `compact` | `50` | context turns red with `→ /compact` at/above this % |
-| `usageWarn` | `70` | usage widgets turn yellow at/above this % |
-| `usageCrit` | `90` | usage widgets turn red at/above this % |
+| Key         | Default | Effect                                              |
+| ----------- | ------- | --------------------------------------------------- |
+| `separator` | `·`     | drawn dim between items in a zone                   |
+| `margin`    | `5`     | columns kept free at the right edge                 |
+| `warn`      | `40`    | context turns yellow ("high") at/above this %       |
+| `compact`   | `50`    | context turns red with `→ /compact` at/above this % |
+| `usageWarn` | `70`    | usage widgets turn yellow at/above this %           |
+| `usageCrit` | `90`    | usage widgets turn red at/above this %              |
 
 ## Widgets
 
@@ -118,29 +121,29 @@ either or both:
 ["context", { "variant": "bar", "bar": "fine", "color": "yellow" }]
 ```
 
-| Widget | Example | Displays | Payload field | Variants |
-|---|---|---|---|---|
-| `branch` | `⎇ main` | git branch | git | |
-| `model` | `Opus 4.8` | model name | `model.display_name` | |
-| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | how full the window is | `context_window` | `full`, `bar`, `pct`, `tokens` + [bar styles](#bar-styles) |
-| `session` | `session 61% (↻2h11m)` | 5-hour usage and reset | `rate_limits.five_hour` | |
-| `weekly` | `All 74%` | 7-day usage | `rate_limits.seven_day` | |
-| `cost` | `$2.69` | session cost in USD | `cost.total_cost_usd` | |
-| `duration` | `37m` | wall-clock this session | `cost.total_duration_ms` | |
-| `lines` | `+156 -23` | lines added and removed | `cost.total_lines_added` / `_removed` | |
-| `pr` | `PR #702` | open PR number | `pr.number` | |
-| `review` | `pending` | PR review state | `pr.review_state` | |
-| `worktree` | `⌂ hotfix` | linked worktree | `workspace.git_worktree` | |
-| `cwd` | `~/Development/dashline` | working directory | `workspace.current_dir` | `full`, `basename` |
-| `repo` | `dashline` | repository name | `workspace.repo` | `full` (owner/name) |
-| `effort` | `high` | reasoning effort | `effort.level` | |
-| `name` | `celestial-vega` | session name | `session_name` | |
-| `output` | `/default` | output style | `output_style.name` | |
-| `version` | `v2.1.90` | Claude Code version | `version` | |
-| `fast` | `fast` | shown when fast mode is on | `fast_mode` | |
-| `thinking` | `thinking` | shown when thinking is on | `thinking.enabled` | |
-| `vim` | `NORMAL` | vim mode | `vim.mode` | |
-| `agent` | `security-reviewer` | active subagent | `agent.name` | |
+| Widget     | Example                             | Displays                   | Variants                                                   |
+| ---------- | ----------------------------------- | -------------------------- | ---------------------------------------------------------- |
+| `branch`   | `⎇ main`                            | git branch                 |                                                            |
+| `model`    | `Opus 4.8`                          | model name                 |                                                            |
+| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | Model context              | `full`, `bar`, `pct`, `tokens` + [bar styles](#bar-styles) |
+| `session`  | `session 61% (↻2h11m)`              | Session usage and reset    |                                                            |
+| `weekly`   | `All 74%`                           | Weekly usage               |                                                            |
+| `cost`     | `$2.69`                             | session cost in USD        |                                                            |
+| `duration` | `37m`                               | wall-clock this session    |                                                            |
+| `lines`    | `+156 -23`                          | lines added and removed    |                                                            |
+| `pr`       | `PR #702`                           | open PR number             |                                                            |
+| `review`   | `pending`                           | PR review state            |                                                            |
+| `worktree` | `⌂ hotfix`                          | linked worktree            |                                                            |
+| `cwd`      | `~/Development/dashline`            | working directory          | `full`, `basename`                                         |
+| `repo`     | `dashline`                          | repository name            | `full` (owner/name)                                        |
+| `effort`   | `high`                              | reasoning effort           |                                                            |
+| `name`     | `celestial-vega`                    | session name               |                                                            |
+| `output`   | `/default`                          | output style               |                                                            |
+| `version`  | `v2.1.90`                           | Claude Code version        |                                                            |
+| `fast`     | `fast`                              | shown when fast mode is on |                                                            |
+| `thinking` | `thinking`                          | shown when thinking is on  |                                                            |
+| `vim`      | `NORMAL`                            | vim mode                   |                                                            |
+| `agent`    | `security-reviewer`                 | active subagent            |                                                            |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
 pair appears on Pro and Max accounts once the payload starts carrying rate limits.
@@ -165,13 +168,13 @@ The `context` bar is drawn with blocks by default. Pick another with a `bar` opt
 ["context", { "variant": "bar", "bar": "line" }]
 ```
 
-| `bar` | 44% of 10 | |
-|---|---|---|
-| `blocks` (default) | `████░░░░░░` | sharp |
-| `shade` | `▓▓▓▓░░░░░░` | softer fill |
-| `line` | `━━━━──────` | thin |
-| `ascii` | `[###-----]` | brackets counted inside the width |
-| `fine` | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+| `bar`              | 44% of 10    |                                     |
+| ------------------ | ------------ | ----------------------------------- |
+| `blocks` (default) | `████░░░░░░` | sharp                               |
+| `shade`            | `▓▓▓▓░░░░░░` | softer fill                         |
+| `line`             | `━━━━──────` | thin                                |
+| `ascii`            | `[###-----]` | brackets counted inside the width   |
+| `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
 
 Every style uses single-cell glyphs, so the bar stays the same width whichever you pick.
 
@@ -185,9 +188,9 @@ Two lines, a custom left/right split, and a plain directory row:
     "lines": [
       { "left": ["model", "name"], "right": ["output"] },
       { "left": ["branch", ["context", "pct"]], "right": ["cost", "pr"] },
-      ["cwd"]
-    ]
-  }
+      ["cwd"],
+    ],
+  },
 }
 ```
 
@@ -200,9 +203,9 @@ plus `DASHLINE_BRANCH`, `DASHLINE_WORKTREE`, and `DASHLINE_CWD` in its environme
     "lines": [
       { "left": ["branch", "context"], "right": ["session", "weekly"] },
       ["codemap ls --linked"],
-      ["kache stat --branch \"$DASHLINE_BRANCH\""]
-    ]
-  }
+      ["kache stat --branch \"$DASHLINE_BRANCH\""],
+    ],
+  },
 }
 ```
 
