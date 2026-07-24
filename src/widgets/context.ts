@@ -1,9 +1,10 @@
-import type { Ctx, Widget } from './types.ts'
+import type { Widget } from './types.ts'
+import type { Payload } from '../payload.ts'
 
 export const context: Widget = {
   data(ctx) {
     const c = ctx.payload.context_window
-    const value = percent(ctx)
+    const value = contextPercent(ctx.payload)
     if (value === null) return { kind: 'label', text: '--', color: 'dim' }
 
     const used = c?.total_input_tokens ?? c?.current_usage?.input_tokens
@@ -19,8 +20,8 @@ export const context: Widget = {
   },
 }
 
-function percent(ctx: Ctx): number | null {
-  const c = ctx.payload.context_window
+export function contextPercent(payload: Payload): number | null {
+  const c = payload.context_window
   if (!c) return null
   if (typeof c.used_percentage === 'number') return c.used_percentage
   const used = c.total_input_tokens ?? c.current_usage?.input_tokens

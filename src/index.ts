@@ -2,6 +2,8 @@ import { parsePayload } from './payload.ts'
 import { loadConfig } from './config.ts'
 import { readGit } from './util/git.ts'
 import { scan } from './scan.ts'
+import { sampleHistory } from './state.ts'
+import { contextPercent } from './widgets/context.ts'
 import { runCommand } from './widgets/command.ts'
 import { render } from './render.ts'
 import type { Ctx } from './widgets/types.ts'
@@ -10,7 +12,8 @@ const raw = await readStdin()
 const payload = parsePayload(raw)
 const config = loadConfig(payload)
 const dir = payload.workspace?.current_dir ?? payload.cwd
-const { commands, usesGit } = scan(config.lines)
+const { commands, usesGit, usesHistory } = scan(config.lines)
+const now = Math.floor(Date.now() / 1000)
 
 const ctx: Ctx = {
   payload,
@@ -21,7 +24,10 @@ const ctx: Ctx = {
     usageWarning: config.usageWarningAt,
     usageCritical: config.usageCriticalAt,
   },
-  now: Math.floor(Date.now() / 1000),
+  now,
+  history: usesHistory
+    ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now)
+    : undefined,
 }
 
 const resolved = await Promise.all(commands.map((cmd) => runCommand(cmd, ctx).then((out) => [cmd, out] as const)))

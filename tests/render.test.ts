@@ -157,6 +157,36 @@ test('a { text } item takes a color and an empty one is dropped', () => {
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
 })
 
+test('sparkline draws a block graph from context history', () => {
+  const c = ctx({})
+  c.history = [
+    { t: 0, ctx: 10, cost: null },
+    { t: 5, ctx: 50, cost: null },
+    { t: 10, ctx: 90, cost: null },
+  ]
+  const out = run([['sparkline']], c)
+  assert.equal(out.length, 1)
+  assert.match(out[0]!, /[▁▂▃▄▅▆▇█]/)
+})
+
+test('burn projects toward compact when context is climbing, and hides when flat', () => {
+  const climbing = ctx({})
+  climbing.history = [
+    { t: 0, ctx: 10, cost: null },
+    { t: 15, ctx: 25, cost: null },
+    { t: 30, ctx: 40, cost: null },
+  ]
+  assert.match(run([['burn']], climbing)[0]!, /→ \/compact ~/)
+
+  const flat = ctx({})
+  flat.history = [
+    { t: 0, ctx: 40, cost: null },
+    { t: 15, ctx: 40, cost: null },
+    { t: 30, ctx: 40, cost: null },
+  ]
+  assert.deepEqual(run([['burn']], flat), [])
+})
+
 test('powerline mode wraps zone items in arrow-joined segments', () => {
   const arrow = String.fromCodePoint(0xe0b0)
   const out = render({ ...base, powerline: true, lines: [['model', 'name']] }, ctx({ model: { display_name: 'Opus' }, session_name: 'vega' }), 80)

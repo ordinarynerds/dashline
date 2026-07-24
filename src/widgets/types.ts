@@ -1,6 +1,7 @@
 import type { Payload } from '../payload.ts'
 import type { GitInfo } from '../util/git.ts'
 import type { Datum } from '../datum.ts'
+import type { Sample } from '../state.ts'
 
 export interface Thresholds {
   warning: number
@@ -15,6 +16,7 @@ export interface Ctx {
   thresholds: Thresholds
   now: number
   commands?: Map<string, string | null>
+  history?: Sample[]
 }
 
 export interface WidgetOpts {

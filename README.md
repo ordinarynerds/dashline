@@ -144,13 +144,16 @@ command, and a `{ "text": ... }` item is printed literally.
 | `name`     | `celestial-vega`                    | session name            | label    |
 | `output`   | `/default`                          | output style            | label    |
 | `version`  | `v2.1.90`                           | Claude Code version     | label    |
+| `sparkline`| `▁▂▃▅▆█`                            | context history         | label    |
+| `burn`     | `→ /compact ~18m`                   | projected time to critical context | label |
 | `fast`     | `fast`                              | fast mode               | flag     |
 | `thinking` | `thinking`                          | extended thinking       | flag     |
 | `vim`      | `NORMAL`                            | vim mode                | label    |
 | `agent`    | `security-reviewer`                 | active subagent         | label    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
-pair appears on Pro and Max once the payload carries rate limits.
+pair appears on Pro and Max once the payload carries rate limits. `sparkline` and `burn`
+read a short history of the session, so they appear after a few refreshes.
 
 ### Presentations, by type
 
@@ -253,6 +256,10 @@ reads the `dashline` config from the settings files, and prints one line per ent
 Each widget is a pure function from the payload to a typed value, which a presenter draws.
 The git branch and worktree are not in the payload, so dashline runs `git` once. Each
 command item runs under a 2-second timeout.
+
+The `sparkline` and `burn` widgets need a history, so when the config uses one dashline
+keeps a small `dashline-state.json` next to the settings with recent context samples per
+session. Without those widgets it holds no state.
 
 ## Security
 

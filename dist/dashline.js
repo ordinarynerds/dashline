@@ -35,7 +35,7 @@ var model = {
 var context = {
   data(ctx2) {
     const c = ctx2.payload.context_window;
-    const value = percent(ctx2);
+    const value = contextPercent(ctx2.payload);
     if (value === null) return { kind: "label", text: "--", color: "dim" };
     const used = c?.total_input_tokens ?? c?.current_usage?.input_tokens;
     const size = c?.context_window_size;
@@ -49,8 +49,8 @@ var context = {
     };
   }
 };
-function percent(ctx2) {
-  const c = ctx2.payload.context_window;
+function contextPercent(payload2) {
+  const c = payload2.context_window;
   if (!c) return null;
   if (typeof c.used_percentage === "number") return c.used_percentage;
   const used = c.total_input_tokens ?? c.current_usage?.input_tokens;
@@ -192,6 +192,86 @@ var version = {
   }
 };
 
+// src/util/format.ts
+var TICKS = ["\u2581", "\u2582", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2588"];
+function spark(values) {
+  return values.map((v) => TICKS[Math.min(7, Math.max(0, Math.round(v / 100 * 7)))]).join("");
+}
+function human(n) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) {
+    const k = Math.round(n / 1e3);
+    return k >= 1e3 ? `${(n / 1e6).toFixed(1)}M` : `${k}k`;
+  }
+  return `${Math.round(n)}`;
+}
+function hms(ms) {
+  const total = Math.floor(ms / 1e3);
+  return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
+}
+function duration2(ms) {
+  const { h, m, s } = hms(ms);
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+function countdown(resetsAt, now2) {
+  const d = Math.max(0, resetsAt - now2);
+  const days = Math.floor(d / 86400);
+  const hrs = Math.floor(d % 86400 / 3600);
+  const mins = Math.floor(d % 3600 / 60);
+  if (days > 0) return `${days}d${hrs}h`;
+  if (hrs > 0) return `${hrs}h${String(mins).padStart(2, "0")}m`;
+  return `${mins}m`;
+}
+
+// src/widgets/sparkline.ts
+var sparkline = {
+  data(ctx2) {
+    const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
+    if (values.length < 2) return null;
+    const recent = values.slice(-20);
+    const last = recent[recent.length - 1];
+    const t = ctx2.thresholds;
+    const color = last >= t.critical ? "red" : last >= t.warning ? "yellow" : "green";
+    return { kind: "label", text: spark(recent), color };
+  }
+};
+
+// src/widgets/burn.ts
+var MAX_ETA = 6 * 3600;
+var burn = {
+  data(ctx2) {
+    const pts = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => ({ t: s.t, v: s.ctx }));
+    if (pts.length < 3) return null;
+    const slope = slopeOf(pts);
+    if (slope <= 0) return null;
+    const last = pts[pts.length - 1];
+    const remaining = ctx2.thresholds.critical - last.v;
+    if (remaining <= 0) return null;
+    const seconds = remaining / slope;
+    if (!Number.isFinite(seconds) || seconds > MAX_ETA) return null;
+    return { kind: "label", text: `\u2192 /compact ~${duration2(seconds * 1e3)}`, color: "red" };
+  }
+};
+function slopeOf(pts) {
+  const n = pts.length;
+  const t0 = pts[0].t;
+  let sx = 0;
+  let sy = 0;
+  let sxy = 0;
+  let sxx = 0;
+  for (const p of pts) {
+    const x = p.t - t0;
+    sx += x;
+    sy += p.v;
+    sxy += x * p.v;
+    sxx += x * x;
+  }
+  const denom = n * sxx - sx * sx;
+  return denom === 0 ? 0 : (n * sxy - sx * sy) / denom;
+}
+
 // src/widgets/flags.ts
 var fast = {
   data({ payload: payload2 }) {
@@ -237,6 +317,8 @@ var registry = {
   name,
   output,
   version,
+  sparkline,
+  burn,
   fast,
   thinking,
   vim,
@@ -343,9 +425,11 @@ function run(dir2, args) {
 
 // src/scan.ts
 var GIT_WIDGETS = /* @__PURE__ */ new Set(["branch", "worktree"]);
+var HISTORY_WIDGETS = /* @__PURE__ */ new Set(["sparkline", "burn"]);
 function scan(lines2) {
   const commands2 = /* @__PURE__ */ new Set();
   let usesGit2 = false;
+  let usesHistory2 = false;
   for (const line of lines2) {
     const zones = Array.isArray(line) ? { left: line } : line;
     for (const items of [zones.left, zones.center, zones.right]) {
@@ -355,6 +439,7 @@ function scan(lines2) {
         if (id === null) continue;
         if (widgetNames.has(id)) {
           if (GIT_WIDGETS.has(id)) usesGit2 = true;
+          if (HISTORY_WIDGETS.has(id)) usesHistory2 = true;
         } else {
           commands2.add(id);
           usesGit2 = true;
@@ -362,12 +447,61 @@ function scan(lines2) {
       }
     }
   }
-  return { commands: [...commands2], usesGit: usesGit2 };
+  return { commands: [...commands2], usesGit: usesGit2, usesHistory: usesHistory2 };
 }
 function itemId(item) {
   if (typeof item === "string") return item;
   if (Array.isArray(item)) return item[0];
   return null;
+}
+
+// src/state.ts
+import { readFileSync as readFileSync2, writeFileSync, renameSync } from "node:fs";
+import { homedir as homedir3 } from "node:os";
+import { join as join2 } from "node:path";
+var GAP = 5;
+var KEEP = 60;
+var MAX_SESSIONS = 20;
+var SESSION_TTL = 6 * 3600;
+function statePath() {
+  const dir2 = process.env.CLAUDE_CONFIG_DIR ?? join2(homedir3(), ".claude");
+  return join2(dir2, "dashline-state.json");
+}
+function sampleHistory(sessionId, ctx2, cost2, now2) {
+  if (!sessionId) return [];
+  const path = statePath();
+  let store = {};
+  try {
+    const parsed = JSON.parse(readFileSync2(path, "utf8"));
+    if (parsed && typeof parsed === "object") store = parsed;
+  } catch {
+  }
+  const samples = Array.isArray(store[sessionId]) ? store[sessionId] : [];
+  const last = samples[samples.length - 1];
+  if (!last || now2 - last.t >= GAP) {
+    samples.push({ t: now2, ctx: ctx2, cost: cost2 });
+    if (samples.length > KEEP) samples.splice(0, samples.length - KEEP);
+  }
+  store[sessionId] = samples;
+  prune(store, now2);
+  try {
+    const tmp = `${path}.tmp`;
+    writeFileSync(tmp, JSON.stringify(store));
+    renameSync(tmp, path);
+  } catch {
+  }
+  return samples;
+}
+function prune(store, now2) {
+  for (const id of Object.keys(store)) {
+    const s = store[id];
+    const last = s[s.length - 1];
+    if (!last || now2 - last.t > SESSION_TTL) delete store[id];
+  }
+  const ids = Object.keys(store);
+  if (ids.length > MAX_SESSIONS) {
+    ids.map((id) => [id, store[id][store[id].length - 1]?.t ?? 0]).sort((a, b) => a[1] - b[1]).slice(0, ids.length - MAX_SESSIONS).forEach(([id]) => delete store[id]);
+  }
 }
 
 // src/widgets/command.ts
@@ -508,38 +642,9 @@ function fine(ratio, width) {
 }
 var barStyles = [...Object.keys(SETS), "fine"];
 
-// src/util/format.ts
-function human(n) {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) {
-    const k = Math.round(n / 1e3);
-    return k >= 1e3 ? `${(n / 1e6).toFixed(1)}M` : `${k}k`;
-  }
-  return `${Math.round(n)}`;
-}
-function hms(ms) {
-  const total = Math.floor(ms / 1e3);
-  return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
-}
-function duration2(ms) {
-  const { h, m, s } = hms(ms);
-  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
-}
-function countdown(resetsAt, now) {
-  const d = Math.max(0, resetsAt - now);
-  const days = Math.floor(d / 86400);
-  const hrs = Math.floor(d % 86400 / 3600);
-  const mins = Math.floor(d % 3600 / 60);
-  if (days > 0) return `${days}d${hrs}h`;
-  if (hrs > 0) return `${hrs}h${String(mins).padStart(2, "0")}m`;
-  return `${mins}m`;
-}
-
 // src/present/percent.ts
 var DEFAULT_WIDTH = 10;
-function percent2(d, opts, ctx2) {
+function percent(d, opts, ctx2) {
   const color = opts.color ?? fillColor(d, opts, ctx2);
   const width = opts.width ?? DEFAULT_WIDTH;
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
@@ -633,7 +738,7 @@ function label(d, opts) {
 function present(datum, opts, ctx2) {
   switch (datum.kind) {
     case "percent":
-      return percent2(datum, opts, ctx2);
+      return percent(datum, opts, ctx2);
     case "duration":
       return duration3(datum, opts);
     case "money":
@@ -790,7 +895,8 @@ var raw = await readStdin();
 var payload = parsePayload(raw);
 var config = loadConfig(payload);
 var dir = payload.workspace?.current_dir ?? payload.cwd;
-var { commands, usesGit } = scan(config.lines);
+var { commands, usesGit, usesHistory } = scan(config.lines);
+var now = Math.floor(Date.now() / 1e3);
 var ctx = {
   payload,
   git: usesGit ? readGit(dir, payload.workspace?.git_worktree) : {},
@@ -800,7 +906,8 @@ var ctx = {
     usageWarning: config.usageWarningAt,
     usageCritical: config.usageCriticalAt
   },
-  now: Math.floor(Date.now() / 1e3)
+  now,
+  history: usesHistory ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now) : void 0
 };
 var resolved = await Promise.all(commands.map((cmd) => runCommand(cmd, ctx).then((out) => [cmd, out])));
 ctx.commands = new Map(resolved);

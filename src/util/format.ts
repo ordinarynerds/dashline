@@ -1,3 +1,10 @@
+const TICKS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+
+// A sparkline of percentages (0..100) as eighth-height block characters.
+export function spark(values: number[]): string {
+  return values.map((v) => TICKS[Math.min(7, Math.max(0, Math.round((v / 100) * 7)))]!).join('')
+}
+
 export function human(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) {

@@ -2,17 +2,21 @@ import type { Item, LineSpec } from './config.ts'
 import { widgetNames } from './widgets/registry.ts'
 
 const GIT_WIDGETS = new Set(['branch', 'worktree'])
+const HISTORY_WIDGETS = new Set(['sparkline', 'burn'])
 
 export interface Scan {
   commands: string[]
   usesGit: boolean
+  usesHistory: boolean
 }
 
-// One pass over the resolved config: which command items to run, and whether anything
-// needs git. Commands need it too, since they receive $DASHLINE_BRANCH/$DASHLINE_WORKTREE.
+// One pass over the resolved config: which command items to run, whether anything needs
+// git, and whether any widget reads session history. Commands need git too, since they
+// receive $DASHLINE_BRANCH/$DASHLINE_WORKTREE.
 export function scan(lines: LineSpec[]): Scan {
   const commands = new Set<string>()
   let usesGit = false
+  let usesHistory = false
 
   for (const line of lines) {
     const zones = Array.isArray(line) ? { left: line } : line
@@ -23,6 +27,7 @@ export function scan(lines: LineSpec[]): Scan {
         if (id === null) continue
         if (widgetNames.has(id)) {
           if (GIT_WIDGETS.has(id)) usesGit = true
+          if (HISTORY_WIDGETS.has(id)) usesHistory = true
         } else {
           commands.add(id)
           usesGit = true
@@ -31,7 +36,7 @@ export function scan(lines: LineSpec[]): Scan {
     }
   }
 
-  return { commands: [...commands], usesGit }
+  return { commands: [...commands], usesGit, usesHistory }
 }
 
 function itemId(item: Item): string | null {
