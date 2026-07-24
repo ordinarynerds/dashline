@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/ordinarynerds/dashline/compare/v0.5.0...v0.6.0) (2026-07-24)
+
+
+### Features
+
+* background colors for badge-style items ([7e5ef05](https://github.com/ordinarynerds/dashline/commit/7e5ef05a96d4c857c354fa64111a964a88bc81fc))
+
 ## [0.5.0](https://github.com/ordinarynerds/dashline/compare/v0.4.0...v0.5.0) (2026-07-24)
 
 
