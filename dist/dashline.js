@@ -71,6 +71,37 @@ function countdown(resetsAt, now) {
   return `${mins}m`;
 }
 
+// src/util/bar.ts
+var SETS = {
+  blocks: { full: "\u2588", empty: "\u2591" },
+  shade: { full: "\u2593", empty: "\u2591" },
+  line: { full: "\u2501", empty: "\u2500" },
+  ascii: { full: "#", empty: "-", wrap: ["[", "]"] }
+};
+var EIGHTHS = ["", "\u258F", "\u258E", "\u258D", "\u258C", "\u258B", "\u258A", "\u2589"];
+function bar(pct, width, style = "blocks") {
+  const ratio = Math.min(100, Math.max(0, pct)) / 100;
+  if (style === "fine") return fine(ratio, width);
+  const set = SETS[style] ?? SETS.blocks;
+  const inner = set.wrap ? Math.max(0, width - 2) : width;
+  const fill = Math.round(ratio * inner);
+  const body = set.full.repeat(fill) + set.empty.repeat(inner - fill);
+  return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
+}
+function fine(ratio, width) {
+  const cells = ratio * width;
+  const full = Math.floor(cells);
+  const part = Math.round((cells - full) * 8);
+  let out = "\u2588".repeat(full);
+  let empty = width - full;
+  if (part > 0 && full < width) {
+    out += EIGHTHS[part];
+    empty -= 1;
+  }
+  return out + "\u2591".repeat(Math.max(0, empty));
+}
+var barStyles = [...Object.keys(SETS), "fine"];
+
 // src/widgets/context.ts
 var WIDTH = 10;
 var context = {
@@ -81,20 +112,17 @@ var context = {
     const color = pct >= ctx2.thresholds.compact ? "red" : pct >= ctx2.thresholds.warn ? "yellow" : "green";
     const variant = opts.variant ?? "full";
     const number = paint(`${pct}%`, `bold ${color}`);
-    const bar = paint("\u2588".repeat(fill(pct)) + "\u2591".repeat(WIDTH - fill(pct)), color);
+    const bar2 = paint(bar(pct, WIDTH, opts.bar), color);
     const tokens = tokenLabel(c);
     if (variant === "pct") return number;
-    if (variant === "bar") return bar;
+    if (variant === "bar") return bar2;
     if (variant === "tokens") return tokens ?? number;
     let hint = "";
     if (pct >= ctx2.thresholds.compact) hint = ` ${paint("\u2192 /compact", "bold red")} ${paint("[next goal/task]", "dim")}`;
     else if (pct >= ctx2.thresholds.warn) hint = ` ${paint("\xB7 high", "yellow")}`;
-    return `${number} ${bar}${tokens ? ` ${tokens}` : ""}${hint}`;
+    return `${number} ${bar2}${tokens ? ` ${tokens}` : ""}${hint}`;
   }
 };
-function fill(pct) {
-  return Math.min(WIDTH, Math.max(0, Math.round(pct * WIDTH / 100)));
-}
 function tokenLabel(c) {
   const used = c?.total_input_tokens ?? c?.current_usage?.input_tokens;
   const size = c?.context_window_size;

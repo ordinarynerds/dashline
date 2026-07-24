@@ -18,6 +18,7 @@ export interface Ctx {
 export interface WidgetOpts {
   color?: string
   variant?: string
+  bar?: string
 }
 
 export interface Widget {

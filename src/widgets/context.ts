@@ -1,6 +1,7 @@
 import type { Ctx, Widget } from './types.ts'
 import { paint } from '../style.ts'
 import { human } from '../util/format.ts'
+import { bar as drawBar } from '../util/bar.ts'
 
 const WIDTH = 10
 
@@ -14,7 +15,7 @@ export const context: Widget = {
     const variant = opts.variant ?? 'full'
 
     const number = paint(`${pct}%`, `bold ${color}`)
-    const bar = paint('█'.repeat(fill(pct)) + '░'.repeat(WIDTH - fill(pct)), color)
+    const bar = paint(drawBar(pct, WIDTH, opts.bar), color)
     const tokens = tokenLabel(c)
 
     if (variant === 'pct') return number
@@ -27,10 +28,6 @@ export const context: Widget = {
 
     return `${number} ${bar}${tokens ? ` ${tokens}` : ''}${hint}`
   },
-}
-
-function fill(pct: number): number {
-  return Math.min(WIDTH, Math.max(0, Math.round((pct * WIDTH) / 100)))
 }
 
 function tokenLabel(c: Ctx['payload']['context_window']): string | null {

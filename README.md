@@ -133,6 +133,25 @@ Recoloring an item replaces its whole look with that color. The color-by-fill wi
 (`context`, `session`, `weekly`) lose their meaning when you recolor them, so leave
 those alone unless you want a fixed color.
 
+### Bar styles
+
+The `context` bar is drawn with blocks by default. Pick another with a `bar` option:
+
+```jsonc
+["context", { "bar": "fine" }]
+["context", { "variant": "bar", "bar": "dots" }]
+```
+
+| `bar` | 44% of 10 | |
+|---|---|---|
+| `blocks` (default) | `████░░░░░░` | sharp |
+| `shade` | `▓▓▓▓░░░░░░` | softer fill |
+| `line` | `━━━━──────` | thin |
+| `ascii` | `[###-----]` | brackets counted inside the width |
+| `fine` | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+
+Every style uses single-cell glyphs, so the bar stays the same width whichever you pick.
+
 ## Examples
 
 Two lines, a custom left/right split, and a plain directory row:
