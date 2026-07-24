@@ -4,9 +4,16 @@ import { paint, sanitize, isStyle } from '../src/style.ts'
 
 const ESC = String.fromCharCode(27)
 
-test('a repeated code is emitted once, so "bold red" does not double the bold', () => {
+test('named colors map to SGR codes and bold composes', () => {
+  assert.equal(paint('x', 'red'), `${ESC}[31mx${ESC}[0m`)
   assert.equal(paint('x', 'bold red'), `${ESC}[1;31mx${ESC}[0m`)
-  assert.equal(paint('x', 'red'), `${ESC}[1;31mx${ESC}[0m`)
+})
+
+test('hex terms become 24-bit truecolor', () => {
+  assert.equal(paint('x', '#4ec9d6'), `${ESC}[38;2;78;201;214mx${ESC}[0m`)
+  assert.equal(isStyle('#4ec9d6'), true)
+  assert.equal(isStyle('#fff'), true)
+  assert.equal(isStyle('#nothex'), false)
 })
 
 test('unknown terms paint nothing', () => {

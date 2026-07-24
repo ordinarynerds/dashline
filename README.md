@@ -192,6 +192,9 @@ A color term is one or more of these words, so `"bold red"` is valid:
 
 `red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `dim` · `bold`
 
+A term can also be a hex value for 24-bit color: `"#4EC9D6"`, or `"#fff"` in shorthand.
+Mix it with attributes, so `"bold #4EC9D6"` works.
+
 A color on an item overrides its default styling. `context`, `session`, and `weekly`
 normally color themselves by fill; a fixed color removes that signal.
 

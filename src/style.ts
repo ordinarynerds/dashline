@@ -2,7 +2,7 @@ const CODES: Record<string, string> = {
   reset: '0',
   bold: '1',
   dim: '2',
-  red: '1;31',
+  red: '31',
   green: '32',
   yellow: '33',
   blue: '34',
@@ -21,13 +21,31 @@ const CONTROL = /[\x00-\x1f\x7f]/g
 
 export function paint(text: string, term?: StyleTerm): string {
   if (!term || !text) return text
-  const codes = [...new Set(term.split(/\s+/).flatMap((word) => CODES[word]?.split(';') ?? []))]
+  const codes = term
+    .split(/\s+/)
+    .map(codesFor)
+    .filter((c): c is string => c !== null)
   if (codes.length === 0) return text
   return `\x1b[${codes.join(';')}m${text}${RESET}`
 }
 
 export function isStyle(term: string): boolean {
-  return term.split(/\s+/).every((word) => word in CODES)
+  return term.split(/\s+/).every((word) => codesFor(word) !== null)
+}
+
+// A style word is a named color/attribute or a hex value like #4EC9D6 (or #fff).
+function codesFor(word: string): string | null {
+  if (word in CODES) return CODES[word]!
+  const rgb = hex(word)
+  return rgb ? `38;2;${rgb[0]};${rgb[1]};${rgb[2]}` : null
+}
+
+function hex(word: string): [number, number, number] | null {
+  if (!word.startsWith('#')) return null
+  let h = word.slice(1)
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('')
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
 }
 
 export function sanitize(text: string): string {

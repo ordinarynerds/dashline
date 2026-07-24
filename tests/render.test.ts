@@ -152,7 +152,7 @@ test('a { text } item renders literal text alongside widgets', () => {
 })
 
 test('a { text } item takes a color and an empty one is dropped', () => {
-  assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /1;31m/)
+  assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /\[31m/)
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
 })
 
