@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/ordinarynerds/dashline/compare/v0.6.0...v0.7.0) (2026-07-24)
+
+
+### Features
+
+* powerline mode for arrow-joined zone segments ([51c09a9](https://github.com/ordinarynerds/dashline/commit/51c09a9200f5f9919411152b59234178290775d3))
+
+
+### Bug Fixes
+
+* clip overflowing lines instead of wrapping the terminal ([7b8074a](https://github.com/ordinarynerds/dashline/commit/7b8074a772fe97142b12e41170a59be8f021ce41))
+
 ## [0.6.0](https://github.com/ordinarynerds/dashline/compare/v0.5.0...v0.6.0) (2026-07-24)
 
 
