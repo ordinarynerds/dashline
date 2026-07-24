@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/ordinarynerds/dashline/compare/v0.9.0...v0.10.0) (2026-07-24)
+
+
+### Features
+
+* present context history as a "history" variant, not a widget ([102166b](https://github.com/ordinarynerds/dashline/commit/102166be747ae05910241fbea10153de85530afb))
+
 ## [0.9.0](https://github.com/ordinarynerds/dashline/compare/v0.8.0...v0.9.0) (2026-07-24)
 
 
