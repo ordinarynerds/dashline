@@ -1,13 +1,25 @@
 export function human(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${Math.round(n / 1_000)}k`
+  if (n >= 1_000) {
+    const k = Math.round(n / 1_000)
+    return k >= 1_000 ? `${(n / 1_000_000).toFixed(1)}M` : `${k}k`
+  }
   return `${Math.round(n)}`
 }
 
+export interface Hms {
+  h: number
+  m: number
+  s: number
+}
+
+export function hms(ms: number): Hms {
+  const total = Math.floor(ms / 1000)
+  return { h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60 }
+}
+
 export function duration(ms: number): string {
-  const s = Math.floor(ms / 1000)
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
+  const { h, m, s } = hms(ms)
   if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`
   if (m > 0) return `${m}m`
   return `${s}s`

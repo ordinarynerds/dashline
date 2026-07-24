@@ -63,8 +63,10 @@ test('a bare array is a left-aligned line', () => {
   assert.deepEqual(run([['cost', 'pr']], ctx(full)), ['$2.69 · PR #702'])
 })
 
-test('an unknown token runs as a shell command', () => {
-  assert.deepEqual(run([['echo hello-from-cmd']], ctx(full)), ['hello-from-cmd'])
+test('an unknown token is drawn from the resolved command map', () => {
+  const c = ctx(full)
+  c.commands = new Map([['my-tool status', 'branch clean']])
+  assert.deepEqual(run([['my-tool status']], c), ['branch clean'])
 })
 
 test('each entry in lines is one row', () => {
@@ -147,4 +149,13 @@ test('a { text } item renders literal text alongside widgets', () => {
 test('a { text } item takes a color and an empty one is dropped', () => {
   assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /1;31m/)
   assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
+})
+
+test('control characters in a text item and the separator are neutralized', () => {
+  const ESC = String.fromCharCode(27)
+  const BEL = String.fromCharCode(7)
+  const c = ctx({})
+  const out = render({ ...base, separator: `${ESC};`, lines: [[{ text: `a${ESC}]0;x${BEL}b` }, { text: 'c' }]] }, c, 120)
+  assert.equal(strip(out[0]!), 'a]0;xb ; c')
+  assert.ok(!strip(out[0]!).includes(ESC))
 })

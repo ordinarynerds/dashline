@@ -14,6 +14,7 @@ export interface Ctx {
   git: GitInfo
   thresholds: Thresholds
   now: number
+  commands?: Map<string, string | null>
 }
 
 export interface WidgetOpts {

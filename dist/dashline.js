@@ -275,9 +275,9 @@ function loadConfig(payload2) {
     if (found.lines !== void 0) linesTrusted = trusted.has(file);
     merged = Object.assign(merged, found);
   }
-  let lines3 = merged.lines ?? DEFAULT_LINES;
-  if (!linesTrusted) lines3 = lines3.map(withoutCommands);
-  return { ...DEFAULTS, ...merged, lines: lines3 };
+  let lines2 = Array.isArray(merged.lines) ? merged.lines : DEFAULT_LINES;
+  if (!linesTrusted) lines2 = lines2.map(withoutCommands);
+  return { ...DEFAULTS, ...merged, lines: lines2 };
 }
 function withoutCommands(line) {
   if (Array.isArray(line)) return line.filter(keep);
@@ -293,10 +293,18 @@ function keep(item) {
   return true;
 }
 function read(file) {
+  let raw2;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    raw2 = readFileSync(file, "utf8");
+  } catch {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw2);
     return parsed.dashline && typeof parsed.dashline === "object" ? parsed.dashline : {};
   } catch {
+    process.stderr.write(`dashline: ignoring ${file} (invalid JSON)
+`);
     return {};
   }
 }
@@ -331,22 +339,75 @@ function run(dir2, args) {
   }
 }
 
-// src/widgets/command.ts
-import { execSync } from "node:child_process";
-function runCommand(cmd, ctx2) {
-  try {
-    const out = execSync(cmd, {
-      encoding: "utf8",
-      timeout: 2e3,
-      input: JSON.stringify(ctx2.payload),
-      stdio: ["pipe", "pipe", "ignore"],
-      env: { ...process.env, ...exported(ctx2) }
-    });
-    const line = out.split("\n").find((l) => l.trim().length > 0);
-    return line ? line.replace(/\s+$/, "") : null;
-  } catch {
-    return null;
+// src/scan.ts
+var GIT_WIDGETS = /* @__PURE__ */ new Set(["branch", "worktree"]);
+function scan(lines2) {
+  const commands2 = /* @__PURE__ */ new Set();
+  let usesGit2 = false;
+  for (const line of lines2) {
+    const zones = Array.isArray(line) ? { left: line } : line;
+    for (const items of [zones.left, zones.center, zones.right]) {
+      if (!items) continue;
+      for (const item of items) {
+        const id = itemId(item);
+        if (id === null) continue;
+        if (widgetNames.has(id)) {
+          if (GIT_WIDGETS.has(id)) usesGit2 = true;
+        } else {
+          commands2.add(id);
+          usesGit2 = true;
+        }
+      }
+    }
   }
+  return { commands: [...commands2], usesGit: usesGit2 };
+}
+function itemId(item) {
+  if (typeof item === "string") return item;
+  if (Array.isArray(item)) return item[0];
+  return null;
+}
+
+// src/widgets/command.ts
+import { spawn } from "node:child_process";
+var TIMEOUT_MS = 2e3;
+function runCommand(cmd, ctx2) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const child = spawn(cmd, {
+      shell: true,
+      detached: true,
+      env: { ...process.env, ...exported(ctx2) },
+      stdio: ["pipe", "pipe", "ignore"]
+    });
+    const timer = setTimeout(() => {
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+        }
+      }
+      finish(null);
+    }, TIMEOUT_MS);
+    let out = "";
+    child.stdout.on("data", (chunk) => {
+      out += chunk;
+    });
+    child.on("error", () => finish(null));
+    child.on("close", () => {
+      const line = out.split("\n").find((l) => l.trim().length > 0);
+      finish(line ? line.replace(/\s+$/, "") : null);
+    });
+    child.stdin.on("error", () => {
+    });
+    child.stdin.end(JSON.stringify(ctx2.payload));
+  });
 }
 function exported(ctx2) {
   return {
@@ -370,14 +431,18 @@ var CODES = {
   gray: "90"
 };
 var RESET = "\x1B[0m";
+var CONTROL = /[\x00-\x1f\x7f]/g;
 function paint(text, term) {
   if (!term || !text) return text;
-  const codes = term.split(/\s+/).map((word) => CODES[word]).filter(Boolean);
+  const codes = [...new Set(term.split(/\s+/).flatMap((word) => CODES[word]?.split(";") ?? []))];
   if (codes.length === 0) return text;
   return `\x1B[${codes.join(";")}m${text}${RESET}`;
 }
 function isStyle(term) {
   return term.split(/\s+/).every((word) => word in CODES);
+}
+function sanitize(text) {
+  return text.replace(CONTROL, "");
 }
 
 // src/util/bar.ts
@@ -398,29 +463,30 @@ function bar(pct, width, style = "blocks") {
   return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
 }
 function fine(ratio, width) {
-  const cells = ratio * width;
-  const full = Math.floor(cells);
-  const part = Math.round((cells - full) * 8);
-  let out = "\u2588".repeat(full);
-  let empty = width - full;
-  if (part > 0 && full < width) {
-    out += EIGHTHS[part];
-    empty -= 1;
-  }
-  return out + "\u2591".repeat(Math.max(0, empty));
+  const eighths = Math.round(ratio * width * 8);
+  const full = Math.floor(eighths / 8);
+  const part = eighths % 8;
+  const partial = part > 0 && full < width ? EIGHTHS[part] : "";
+  const empty = width - full - (partial ? 1 : 0);
+  return "\u2588".repeat(Math.min(full, width)) + partial + "\u2591".repeat(Math.max(0, empty));
 }
 var barStyles = [...Object.keys(SETS), "fine"];
 
 // src/util/format.ts
 function human(n) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${Math.round(n / 1e3)}k`;
+  if (n >= 1e3) {
+    const k = Math.round(n / 1e3);
+    return k >= 1e3 ? `${(n / 1e6).toFixed(1)}M` : `${k}k`;
+  }
   return `${Math.round(n)}`;
 }
+function hms(ms) {
+  const total = Math.floor(ms / 1e3);
+  return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60 };
+}
 function duration2(ms) {
-  const s = Math.floor(ms / 1e3);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor(s % 3600 / 60);
+  const { h, m, s } = hms(ms);
   if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
   if (m > 0) return `${m}m`;
   return `${s}s`;
@@ -452,17 +518,14 @@ function percent2(d, opts, ctx2) {
     case "ratio":
       return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number;
     case "tokens":
-      return d.tokens ? paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim") : number;
+      return d.tokens ? paint(tokens(d), "dim") : number;
   }
   const label2 = opts.label ?? d.label;
   const parts = [];
   if (label2) parts.push(paint(label2, "dim"));
   parts.push(number);
   if (d.defaultBar || opts.bar) parts.push(meter);
-  if (d.tokens)
-    parts.push(
-      paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim")
-    );
+  if (d.tokens) parts.push(paint(tokens(d), "dim"));
   if (d.hint && d.value >= ctx2.thresholds.critical) {
     parts.push(
       `${paint("\u2192 /compact", "bold red")} ${paint("[focus instructions]", "dim")}`
@@ -474,6 +537,9 @@ function percent2(d, opts, ctx2) {
     parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
   return parts.join(" ");
 }
+function tokens(d) {
+  return `(${human(d.tokens.used)}/${human(d.tokens.size)})`;
+}
 function fillColor(d, opts, ctx2) {
   const t = ctx2.thresholds;
   const warning = opts.warningAt ?? (d.scale === "context" ? t.warning : t.usageWarning);
@@ -484,12 +550,10 @@ function fillColor(d, opts, ctx2) {
 // src/present/scalars.ts
 function duration3(d, opts) {
   const color = opts.color ?? "dim";
-  const s = Math.floor(d.ms / 1e3);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor(s % 3600 / 60);
+  const { h, m, s } = hms(d.ms);
   if (opts.variant === "long") return paint(`${h}h${String(m).padStart(2, "0")}m`, color);
   if (opts.variant === "clock") {
-    return paint(`${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`, color);
+    return paint(`${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`, color);
   }
   return paint(duration2(d.ms), color);
 }
@@ -577,7 +641,7 @@ function compose(left, center, right, columns2, margin) {
 
 // src/render.ts
 function render(config2, ctx2, columns2) {
-  const sep = ` ${paint(config2.separator, "dim")} `;
+  const sep = ` ${paint(sanitize(config2.separator), "dim")} `;
   const out = [];
   for (const line of config2.lines) {
     const rendered = renderLine(line, ctx2, config2, columns2, sep);
@@ -605,12 +669,13 @@ function renderZone(items, ctx2, sep) {
 function renderItem(item, ctx2) {
   if (typeof item === "object" && !Array.isArray(item)) {
     if (!item.text) return null;
-    return item.color ? paint(item.text, item.color) : item.text;
+    const text = sanitize(item.text);
+    return item.color ? paint(text, item.color) : text;
   }
   const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
   const opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
   const widget = registry[id];
-  if (!widget) return runCommand(id, ctx2);
+  if (!widget) return ctx2.commands?.get(id) ?? null;
   const datum = widget.data(ctx2, opts);
   if (!datum) return null;
   const out = present(datum, opts, ctx2);
@@ -622,9 +687,10 @@ var raw = await readStdin();
 var payload = parsePayload(raw);
 var config = loadConfig(payload);
 var dir = payload.workspace?.current_dir ?? payload.cwd;
+var { commands, usesGit } = scan(config.lines);
 var ctx = {
   payload,
-  git: readGit(dir, payload.workspace?.git_worktree),
+  git: usesGit ? readGit(dir, payload.workspace?.git_worktree) : {},
   thresholds: {
     warning: config.contextWarningAt,
     critical: config.contextCriticalAt,
@@ -633,10 +699,15 @@ var ctx = {
   },
   now: Math.floor(Date.now() / 1e3)
 };
+var resolved = await Promise.all(commands.map((cmd) => runCommand(cmd, ctx).then((out) => [cmd, out])));
+ctx.commands = new Map(resolved);
 var columns = Number(process.env.COLUMNS) || 80;
-var lines2 = render(config, ctx, columns);
-if (lines2.length > 0) process.stdout.write(`${lines2.join("\n")}
+try {
+  const lines2 = render(config, ctx, columns);
+  if (lines2.length > 0) process.stdout.write(`${lines2.join("\n")}
 `);
+} catch {
+}
 async function readStdin() {
   const chunks = [];
   for await (const chunk of process.stdin) chunks.push(chunk);

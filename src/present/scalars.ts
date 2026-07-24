@@ -1,16 +1,14 @@
 import type { Duration, Money, Delta, Flag } from '../datum.ts'
 import type { WidgetOpts } from '../widgets/types.ts'
 import { paint } from '../style.ts'
-import { duration as short } from '../util/format.ts'
+import { duration as short, hms } from '../util/format.ts'
 
 export function duration(d: Duration, opts: WidgetOpts): string {
   const color = opts.color ?? 'dim'
-  const s = Math.floor(d.ms / 1000)
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
+  const { h, m, s } = hms(d.ms)
   if (opts.variant === 'long') return paint(`${h}h${String(m).padStart(2, '0')}m`, color)
   if (opts.variant === 'clock') {
-    return paint(`${h}:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`, color)
+    return paint(`${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`, color)
   }
   return paint(short(d.ms), color)
 }

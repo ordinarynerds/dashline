@@ -76,3 +76,18 @@ test('falls back to the default line when nothing configures it', () => {
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('a non-array lines value falls back instead of crashing the renderer', () => {
+  const home = mkdtempSync(join(tmpdir(), 'dl-home-'))
+  try {
+    // common typo: the row object without the surrounding array
+    writeSettings(home, { lines: { left: ['model'] } })
+    withHome(home, () => {
+      const cfg = loadConfig({})
+      assert.ok(Array.isArray(cfg.lines))
+      assert.deepEqual(cfg.lines, [{ left: ['branch', 'model', 'context'], right: ['session', 'weekly'] }])
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})

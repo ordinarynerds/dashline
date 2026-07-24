@@ -26,18 +26,15 @@ export function bar(pct: number, width: number, style = 'blocks'): string {
   return set.wrap ? set.wrap[0] + body + set.wrap[1] : body
 }
 
-// Eighth blocks give 8 sub-cell steps per column for a smooth edge.
+// Eighth blocks give 8 sub-cell steps per column for a smooth edge. Working in whole
+// eighths keeps the partial index in 0..7 and the total width exactly `width`.
 function fine(ratio: number, width: number): string {
-  const cells = ratio * width
-  const full = Math.floor(cells)
-  const part = Math.round((cells - full) * 8)
-  let out = '█'.repeat(full)
-  let empty = width - full
-  if (part > 0 && full < width) {
-    out += EIGHTHS[part]
-    empty -= 1
-  }
-  return out + '░'.repeat(Math.max(0, empty))
+  const eighths = Math.round(ratio * width * 8)
+  const full = Math.floor(eighths / 8)
+  const part = eighths % 8
+  const partial = part > 0 && full < width ? EIGHTHS[part] : ''
+  const empty = width - full - (partial ? 1 : 0)
+  return '█'.repeat(Math.min(full, width)) + partial + '░'.repeat(Math.max(0, empty))
 }
 
 export const barStyles = [...Object.keys(SETS), 'fine']

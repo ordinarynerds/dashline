@@ -1,13 +1,12 @@
 import type { DashlineConfig, Item, LineSpec } from './config.ts'
 import type { Ctx, WidgetOpts } from './widgets/types.ts'
 import { registry } from './widgets/registry.ts'
-import { runCommand } from './widgets/command.ts'
 import { present } from './present/index.ts'
 import { compose } from './layout.ts'
-import { paint, isStyle } from './style.ts'
+import { paint, isStyle, sanitize } from './style.ts'
 
 export function render(config: DashlineConfig, ctx: Ctx, columns: number): string[] {
-  const sep = ` ${paint(config.separator, 'dim')} `
+  const sep = ` ${paint(sanitize(config.separator), 'dim')} `
   const out: string[] = []
   for (const line of config.lines) {
     const rendered = renderLine(line, ctx, config, columns, sep)
@@ -38,7 +37,8 @@ function renderZone(items: Item[] | undefined, ctx: Ctx, sep: string): string {
 function renderItem(item: Item, ctx: Ctx): string | null {
   if (typeof item === 'object' && !Array.isArray(item)) {
     if (!item.text) return null
-    return item.color ? paint(item.text, item.color) : item.text
+    const text = sanitize(item.text)
+    return item.color ? paint(text, item.color) : text
   }
 
   const [id, raw] = Array.isArray(item) ? item : [item, undefined]
@@ -46,7 +46,7 @@ function renderItem(item: Item, ctx: Ctx): string | null {
     typeof raw === 'string' ? (isStyle(raw) ? { color: raw } : { variant: raw }) : (raw ?? {})
 
   const widget = registry[id]
-  if (!widget) return runCommand(id, ctx)
+  if (!widget) return ctx.commands?.get(id) ?? null
 
   const datum = widget.data(ctx, opts)
   if (!datum) return null

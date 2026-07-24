@@ -24,9 +24,7 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
         ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color)
         : number;
     case "tokens":
-      return d.tokens
-        ? paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim")
-        : number;
+      return d.tokens ? paint(tokens(d), "dim") : number;
   }
 
   const label = opts.label ?? d.label;
@@ -34,10 +32,7 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   if (label) parts.push(paint(label, "dim"));
   parts.push(number);
   if (d.defaultBar || opts.bar) parts.push(meter);
-  if (d.tokens)
-    parts.push(
-      paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim"),
-    );
+  if (d.tokens) parts.push(paint(tokens(d), "dim"));
   if (d.hint && d.value >= ctx.thresholds.critical) {
     parts.push(
       `${paint("→ /compact", "bold red")} ${paint("[focus instructions]", "dim")}`,
@@ -48,6 +43,10 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   if (d.reset && opts.countdown !== false)
     parts.push(paint(`(↻${countdown(d.reset, ctx.now)})`, "dim"));
   return parts.join(" ");
+}
+
+function tokens(d: Percent): string {
+  return `(${human(d.tokens!.used)}/${human(d.tokens!.size)})`;
 }
 
 function fillColor(d: Percent, opts: WidgetOpts, ctx: Ctx): string {

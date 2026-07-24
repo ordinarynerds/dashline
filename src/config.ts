@@ -67,7 +67,7 @@ export function loadConfig(payload: Payload): DashlineConfig {
     merged = Object.assign(merged, found)
   }
 
-  let lines = merged.lines ?? DEFAULT_LINES
+  let lines = Array.isArray(merged.lines) ? merged.lines : DEFAULT_LINES
   if (!linesTrusted) lines = lines.map(withoutCommands)
 
   return { ...DEFAULTS, ...merged, lines }
@@ -93,10 +93,17 @@ function keep(item: Item): boolean {
 }
 
 function read(file: string): Partial<DashlineConfig> {
+  let raw: string
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { dashline?: unknown }
+    raw = readFileSync(file, 'utf8')
+  } catch {
+    return {} // a missing settings file is normal
+  }
+  try {
+    const parsed = JSON.parse(raw) as { dashline?: unknown }
     return parsed.dashline && typeof parsed.dashline === 'object' ? (parsed.dashline as Partial<DashlineConfig>) : {}
   } catch {
+    process.stderr.write(`dashline: ignoring ${file} (invalid JSON)\n`)
     return {}
   }
 }

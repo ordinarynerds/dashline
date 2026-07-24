@@ -33,3 +33,11 @@ test('out-of-range percentages clamp', () => {
   assert.equal(bar(-5, 4, 'blocks'), '░░░░')
   assert.equal(bar(150, 4, 'blocks'), '████')
 })
+
+test('fine stays exactly width cells across the whole range, never spilling a partial', () => {
+  for (let p = 0; p <= 100; p += 0.1) {
+    const b = bar(p, 10, 'fine')
+    assert.equal([...b].length, 10, `fine at ${p.toFixed(1)}%`)
+    assert.ok(!b.includes('undefined'), `fine at ${p.toFixed(1)}%`)
+  }
+})
