@@ -18,5 +18,6 @@ export function label(d: Label, opts: WidgetOpts): string {
   const term = styleTerm(color, opts)
   const body = term || opts.bg ? paint(text, term, opts.bg) : text
   const icon = opts.icon ?? d.icon
-  return icon ? `${paint(icon, d.iconColor ?? 'dim')} ${body}` : body
+  // The icon keeps its own dim/icon color but carries the item's bold/italic/underline too.
+  return icon ? `${paint(icon, styleTerm(d.iconColor ?? 'dim', opts))} ${body}` : body
 }

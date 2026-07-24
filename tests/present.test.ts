@@ -93,6 +93,16 @@ test('percent: attributes fold into the number and the bar, colored per fill', (
   assert.match(percent(d, { variant: 'bar', underline: true }, ctx), /\[32;4m/)
 })
 
+test('percent: attributes also style the composed detail (tokens, countdown)', () => {
+  const withTokens: Percent = { kind: 'percent', value: 44, scale: 'context', tokens: { used: 440_000, size: 1_000_000 } }
+  // the (used/size) token detail stays dim but carries the underline attribute
+  assert.match(percent(withTokens, { underline: true }, ctx), /\[2;4m\(/)
+
+  const withReset: Percent = { kind: 'percent', value: 61, scale: 'usage', reset: 2_000_000 }
+  // the (↻…) countdown detail is dim + underline too
+  assert.match(percent(withReset, { underline: true }, ctx), /\[2;4m\(↻/)
+})
+
 test('gradient bar folds attributes into each cell so the whole bar stays styled', () => {
   const b = gradientBar(60, 10, { underline: true })
   assert.match(b, /38;2;\d+;\d+;\d+;4m/) // filled cell: truecolor + underline
