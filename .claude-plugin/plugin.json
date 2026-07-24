@@ -1,6 +1,6 @@
 {
   "name": "dashline",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A configurable Claude Code status line. Compose payload fields into lines and zones from settings.json, no scripting. Ships with a context + usage default.",
   "author": {
     "name": "Ordinary Nerds",
@@ -9,5 +9,11 @@
   "homepage": "https://github.com/ordinarynerds/dashline",
   "repository": "https://github.com/ordinarynerds/dashline",
   "license": "MIT",
-  "keywords": ["status-line", "statusline", "context-window", "usage", "claude-code"]
+  "keywords": [
+    "status-line",
+    "statusline",
+    "context-window",
+    "usage",
+    "claude-code"
+  ]
 }
