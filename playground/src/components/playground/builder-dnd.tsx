@@ -1,0 +1,38 @@
+import { type ReactNode } from 'react'
+import { DragDropContext, type DropResult } from '@hello-pangea/dnd'
+import { PALETTE_ORDER } from '@/lib/dashline'
+import { usePlaygroundContext } from './context'
+import { LINE_TYPE, PALETTE_DROPPABLE, parseZoneDroppableId } from './dnd'
+
+// Wraps the whole build shell so the palette (right sidebar), the line stack, and every line zone
+// (main column) share one drag context. Dropping is routed here: line drags reorder the stack,
+// palette drags insert a fresh widget, and zone drags move the item across zones and lines.
+export function BuilderDnd({ children }: { children: ReactNode }) {
+  const { insertWidget, moveItem, moveLine } = usePlaygroundContext()
+
+  function onDragEnd({ source, destination, type }: DropResult) {
+    if (!destination) return
+
+    if (type === LINE_TYPE) {
+      if (source.index === destination.index) return
+      moveLine(source.index, destination.index)
+      return
+    }
+
+    const to = parseZoneDroppableId(destination.droppableId)
+    if (!to) return
+
+    if (source.droppableId === PALETTE_DROPPABLE) {
+      const widget = PALETTE_ORDER[source.index]
+      if (widget) insertWidget(widget, { ...to, index: destination.index })
+      return
+    }
+
+    const from = parseZoneDroppableId(source.droppableId)
+    if (!from) return
+    if (from.li === to.li && from.z === to.z && source.index === destination.index) return
+    moveItem({ ...from, index: source.index }, { ...to, index: destination.index })
+  }
+
+  return <DragDropContext onDragEnd={onDragEnd}>{children}</DragDropContext>
+}
