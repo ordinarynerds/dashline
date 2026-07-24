@@ -434,40 +434,43 @@ function countdown(resetsAt, now) {
 }
 
 // src/present/percent.ts
-var WIDTH = 10;
+var DEFAULT_WIDTH = 10;
 function percent2(d, opts, ctx2) {
-  const color = opts.color ?? fillColor(d, ctx2);
+  const color = opts.color ?? fillColor(d, opts, ctx2);
+  const width = opts.width ?? DEFAULT_WIDTH;
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
-  const meter = paint(bar(d.value, WIDTH, opts.bar), color);
+  const meter = paint(bar(d.value, width, opts.bar), color);
   switch (opts.variant) {
     case "pct":
       return number;
     case "bar":
       return meter;
     case "gauge":
-      return paint(`\u2595${bar(d.value, WIDTH, opts.bar)}\u258F`, color);
+      return paint(`\u2595${bar(d.value, width, opts.bar)}\u258F`, color);
     case "ratio":
       return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number;
     case "tokens":
       return d.tokens ? paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim") : number;
   }
+  const label2 = opts.label ?? d.label;
   const parts = [];
-  if (d.label) parts.push(paint(d.label, "dim"));
+  if (label2) parts.push(paint(label2, "dim"));
   parts.push(number);
-  if (d.defaultBar) parts.push(meter);
+  if (d.defaultBar || opts.bar) parts.push(meter);
   if (d.tokens) parts.push(paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim"));
   if (d.hint && d.value >= ctx2.thresholds.compact) {
     parts.push(`${paint("\u2192 /compact", "bold red")} ${paint("[next goal/task]", "dim")}`);
   } else if (d.hint && d.value >= ctx2.thresholds.warn) {
     parts.push(paint("\xB7 high", "yellow"));
   }
-  if (d.reset) parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
+  if (d.reset && opts.countdown !== false) parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
   return parts.join(" ");
 }
-function fillColor(d, ctx2) {
+function fillColor(d, opts, ctx2) {
   const t = ctx2.thresholds;
-  if (d.scale === "context") return d.value >= t.compact ? "red" : d.value >= t.warn ? "yellow" : "green";
-  return d.value >= t.usageCrit ? "red" : d.value >= t.usageWarn ? "yellow" : "green";
+  const warn = opts.warn ?? (d.scale === "context" ? t.warn : t.usageWarn);
+  const crit = opts.crit ?? (d.scale === "context" ? t.compact : t.usageCrit);
+  return d.value >= crit ? "red" : d.value >= warn ? "yellow" : "green";
 }
 
 // src/present/scalars.ts
@@ -510,13 +513,12 @@ function label(d, opts) {
   if (v === "basename") text = basename2(text);
   else if (v === "upper") text = text.toUpperCase();
   else if (v === "lower") text = text.toLowerCase();
-  else if (v?.startsWith("truncate:")) {
-    const n = Number(v.slice("truncate:".length));
-    if (n > 0 && text.length > n) text = `${text.slice(0, n - 1)}\u2026`;
-  }
+  const limit = opts.truncate ?? (v?.startsWith("truncate:") ? Number(v.slice("truncate:".length)) : 0);
+  if (limit > 0 && text.length > limit) text = `${text.slice(0, limit - 1)}\u2026`;
   const color = opts.color ?? d.color;
   const body = color ? paint(text, color) : text;
-  return d.icon ? `${paint(d.icon, d.iconColor ?? "dim")} ${body}` : body;
+  const icon = opts.icon ?? d.icon;
+  return icon ? `${paint(icon, d.iconColor ?? "dim")} ${body}` : body;
 }
 
 // src/present/index.ts

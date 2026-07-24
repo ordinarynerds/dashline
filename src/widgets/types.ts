@@ -17,9 +17,18 @@ export interface Ctx {
 }
 
 export interface WidgetOpts {
+  // presentation
   color?: string
   variant?: string
   bar?: string
+  // data
+  label?: string
+  countdown?: boolean
+  warn?: number
+  crit?: number
+  width?: number
+  truncate?: number
+  icon?: string
 }
 
 export interface Widget {

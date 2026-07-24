@@ -105,9 +105,9 @@ A string is read as a color when it is a known style term, otherwise as a varian
 
 ## Widgets
 
-Each widget reads one part of the JSON payload Claude Code sends on stdin, and every
-one is choosable by name. A widget with no data removes itself, and a row left with
-nothing on it is skipped.
+Each widget reads one part of the JSON payload Claude Code sends on stdin, and you pick
+each one by name. A widget with no data removes itself, and a row left with nothing on
+it is skipped.
 
 Each widget has a **data type**, and the type decides how it can be drawn: any
 percentage can be a bar, a number, or a gauge; any duration can be short or a clock.
@@ -121,29 +121,29 @@ same way:
 ["context", { "variant": "gauge", "color": "yellow" }]
 ```
 
-| Widget | Example | Displays | Type |
-|---|---|---|---|
-| `branch` | `⎇ main` | git branch | label |
-| `model` | `Opus 4.8` | model name | label |
-| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | model context | percent |
-| `session` | `session 61% (↻2h11m)` | session usage and reset | percent |
-| `weekly` | `All 74%` | weekly usage | percent |
-| `cost` | `$2.69` | session cost | money |
-| `duration` | `37m` | wall-clock this session | duration |
-| `lines` | `+156 -23` | lines added and removed | delta |
-| `pr` | `PR #702` | open PR number | label |
-| `review` | `pending` | PR review state | label |
-| `worktree` | `⌂ hotfix` | linked worktree | label |
-| `cwd` | `~/Development/dashline` | working directory | label |
-| `repo` | `dashline` | repository name | label |
-| `effort` | `high` | reasoning effort | label |
-| `name` | `celestial-vega` | session name | label |
-| `output` | `/default` | output style | label |
-| `version` | `v2.1.90` | Claude Code version | label |
-| `fast` | `fast` | fast mode | flag |
-| `thinking` | `thinking` | extended thinking | flag |
-| `vim` | `NORMAL` | vim mode | label |
-| `agent` | `security-reviewer` | active subagent | label |
+| Widget     | Example                             | Displays                | Type       |
+| ---------- | ----------------------------------- | ----------------------- | ---------- |
+| `branch`   | `⎇ main`                            | git branch              | `label`    |
+| `model`    | `Opus 4.8`                          | model name              | `label`    |
+| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | model context           | `percent`  |
+| `session`  | `session 61% (↻2h11m)`              | session usage and reset | `percent`  |
+| `weekly`   | `All 74%`                           | weekly usage            | `percent`  |
+| `cost`     | `$2.69`                             | session cost            | `money`    |
+| `duration` | `37m`                               | wall-clock this session | `duration` |
+| `lines`    | `+156 -23`                          | lines added/removed     | `delta`    |
+| `pr`       | `PR #702`                           | open PR number          | `label`    |
+| `review`   | `pending`                           | PR review state         | `label`    |
+| `worktree` | `⌂ hotfix`                          | linked worktree         | `label`    |
+| `cwd`      | `~/Development/dashline`            | working directory       | `label`    |
+| `repo`     | `dashline`                          | repository name         | `label`    |
+| `effort`   | `high`                              | reasoning effort        | `label`    |
+| `name`     | `celestial-vega`                    | session name            | `label`    |
+| `output`   | `/default`                          | output style            | `label`    |
+| `version`  | `v2.1.90`                           | Claude Code version     | `label`    |
+| `fast`     | `fast`                              | fast mode               | `flag`     |
+| `thinking` | `thinking`                          | extended thinking       | `flag`     |
+| `vim`      | `NORMAL`                            | vim mode                | `label`    |
+| `agent`    | `security-reviewer`                 | active subagent         | `label`    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red); the usage
 pair appears on Pro and Max once the payload carries rate limits. Anything not in this
@@ -155,17 +155,39 @@ A type decides how its widgets can be drawn, so a drawing works by type, not by 
 `["session", "bar"]` and `["cost", "cents"]` both do what they say. Set it with the
 item's variant. The first presentation in each row is the default.
 
-| Type | Presentations |
-|---|---|
-| `percent` | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
-| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`) |
-| `money` | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`) |
-| `delta` | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`) |
-| `label` | `text`, `basename`, `upper`, `lower`, `truncate:N` |
-| `flag` | `on` (hidden when off), `onoff` (`fast:off`) |
+| Type       | Presentations                                                                                                                |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `percent`  | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
+| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`)                                                                       |
+| `money`    | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`)                                                                            |
+| `delta`    | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`)                                                                        |
+| `label`    | `text`, `basename`, `upper`, `lower`, `truncate:N`                                                                           |
+| `flag`     | `on` (hidden when off), `onoff` (`fast:off`)                                                                                 |
 
 For `percent`, the default is the fuller line (number, bar, tokens, and countdown as
 each is available), which is why `context` and `session` look richer than a bare `bar`.
+
+## Data options
+
+The object form of an item also carries data options, which change what a widget shows
+rather than how. Combine them with `variant`, `bar`, and `color`.
+
+```jsonc
+["session", { "label": "5h", "countdown": false, "warn": 50, "crit": 80, "bar": "fine", "width": 16 }]
+["branch", { "truncate": 12 }]
+```
+
+| Option         | Types   | Effect                                                           |
+| -------------- | ------- | ---------------------------------------------------------------- |
+| `label`        | percent | rename the prefix, such as `session` to `5h`                     |
+| `countdown`    | percent | set `false` to drop the reset countdown                          |
+| `warn`, `crit` | percent | color thresholds for this item, above the global ones            |
+| `width`        | percent | bar width in columns                                             |
+| `bar`          | percent | bar glyph style (see [bar styles](#bar-styles))                  |
+| `truncate`     | label   | shorten the text to N characters with an ellipsis                |
+| `icon`         | label   | a glyph placed before the text                                   |
+| `color`        | any     | a fixed color (see [Styles](#styles))                            |
+| `variant`      | any     | which presentation to draw (see [Presentations](#presentations)) |
 
 ## Styles
 
@@ -234,9 +256,10 @@ Claude Code hands the status-line command a JSON payload on stdin. dashline read
 reads your `dashline` config from the settings files, and prints one line per entry in
 `lines`. No network, no transcript parsing, nothing that drifts between releases.
 
-Each widget is a small pure function from the payload to a string. The git branch and
-worktree are the one thing not in the payload, so dashline asks `git` once. A command
-item runs in a 2-second timeout, so a slow tool can't stall the line.
+Each widget is a small pure function from the payload to a typed value, and a presenter
+draws that value. The git branch and worktree are the one thing not in the payload, so
+dashline asks `git` once. A command item runs under a 2-second timeout, so a slow tool
+can't stall the line.
 
 ## Security
 
@@ -263,9 +286,10 @@ npm run build     # bundle src to dist/dashline.js
 npm run typecheck
 ```
 
-Source is in `src/`: `widgets/` holds one file per field, `render.ts` lays out the
-zones, `layout.ts` justifies a line, `config.ts` reads and merges settings. Adding a
-widget is one file plus one line in `widgets/registry.ts`.
+Source is in `src/`: `widgets/` holds one file per field, `present/` draws each data
+type, `render.ts` lays out the zones, `layout.ts` justifies a line, and `config.ts`
+reads and merges settings. Adding a widget is one file plus one line in
+`widgets/registry.ts`.
 
 ## License
 

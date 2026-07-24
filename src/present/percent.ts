@@ -4,12 +4,13 @@ import { paint } from '../style.ts'
 import { bar } from '../util/bar.ts'
 import { human, countdown } from '../util/format.ts'
 
-const WIDTH = 10
+const DEFAULT_WIDTH = 10
 
 export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
-  const color = opts.color ?? fillColor(d, ctx)
+  const color = opts.color ?? fillColor(d, opts, ctx)
+  const width = opts.width ?? DEFAULT_WIDTH
   const number = paint(`${Math.round(d.value)}%`, `bold ${color}`)
-  const meter = paint(bar(d.value, WIDTH, opts.bar), color)
+  const meter = paint(bar(d.value, width, opts.bar), color)
 
   switch (opts.variant) {
     case 'pct':
@@ -17,29 +18,31 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
     case 'bar':
       return meter
     case 'gauge':
-      return paint(`▕${bar(d.value, WIDTH, opts.bar)}▏`, color)
+      return paint(`▕${bar(d.value, width, opts.bar)}▏`, color)
     case 'ratio':
       return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number
     case 'tokens':
       return d.tokens ? paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, 'dim') : number
   }
 
+  const label = opts.label ?? d.label
   const parts: string[] = []
-  if (d.label) parts.push(paint(d.label, 'dim'))
+  if (label) parts.push(paint(label, 'dim'))
   parts.push(number)
-  if (d.defaultBar) parts.push(meter)
+  if (d.defaultBar || opts.bar) parts.push(meter)
   if (d.tokens) parts.push(paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, 'dim'))
   if (d.hint && d.value >= ctx.thresholds.compact) {
     parts.push(`${paint('→ /compact', 'bold red')} ${paint('[next goal/task]', 'dim')}`)
   } else if (d.hint && d.value >= ctx.thresholds.warn) {
     parts.push(paint('· high', 'yellow'))
   }
-  if (d.reset) parts.push(paint(`(↻${countdown(d.reset, ctx.now)})`, 'dim'))
+  if (d.reset && opts.countdown !== false) parts.push(paint(`(↻${countdown(d.reset, ctx.now)})`, 'dim'))
   return parts.join(' ')
 }
 
-function fillColor(d: Percent, ctx: Ctx): string {
+function fillColor(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   const t = ctx.thresholds
-  if (d.scale === 'context') return d.value >= t.compact ? 'red' : d.value >= t.warn ? 'yellow' : 'green'
-  return d.value >= t.usageCrit ? 'red' : d.value >= t.usageWarn ? 'yellow' : 'green'
+  const warn = opts.warn ?? (d.scale === 'context' ? t.warn : t.usageWarn)
+  const crit = opts.crit ?? (d.scale === 'context' ? t.compact : t.usageCrit)
+  return d.value >= crit ? 'red' : d.value >= warn ? 'yellow' : 'green'
 }
