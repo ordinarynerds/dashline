@@ -1,0 +1,27 @@
+{
+  "name": "dashline",
+  "version": "0.2.0",
+  "description": "A simpler Claude Code status line. Configure it in settings.json, no scripting.",
+  "type": "module",
+  "bin": {
+    "dashline": "dist/dashline.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --outfile=dist/dashline.js --banner:js=\"#!/usr/bin/env node\"",
+    "test": "node --test --experimental-strip-types",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
+  }
+}

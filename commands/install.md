@@ -9,8 +9,8 @@ Install dashline as your status line by running its installer, which backs up
 !`bash "${CLAUDE_PLUGIN_ROOT}/scripts/install.sh"`
 
 If that path was empty and nothing ran, locate the dashline plugin directory (the one
-containing `statusline/dashline.sh`) under `~/.claude/plugins/` and run its
-`scripts/install.sh`.
+containing `dist/dashline.js`) under `~/.claude/plugins/` and run its
+`scripts/install.sh`. The installer needs Node on `PATH`.
 
 Then tell me the result, remind me to start a new session or run `/statusline` to see
 it, and note that a timestamped `settings.json` backup was made. To undo, run the same

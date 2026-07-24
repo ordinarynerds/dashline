@@ -1,0 +1,85 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { render } from '../src/render.ts'
+import { strip } from '../src/util/width.ts'
+import type { DashlineConfig, LineSpec } from '../src/config.ts'
+import type { Ctx } from '../src/widgets/types.ts'
+import type { Payload } from '../src/payload.ts'
+
+const base: Omit<DashlineConfig, 'lines'> = {
+  separator: '·',
+  margin: 5,
+  warn: 40,
+  compact: 50,
+  usageWarn: 70,
+  usageCrit: 90,
+}
+
+function ctx(payload: Payload, branch?: string): Ctx {
+  return {
+    payload,
+    git: branch ? { branch } : {},
+    thresholds: { warn: 40, compact: 50, usageWarn: 70, usageCrit: 90 },
+    now: 1_000_000,
+  }
+}
+
+function run(lines: LineSpec[], c: Ctx, columns = 120): string[] {
+  return render({ ...base, lines }, c, columns).map(strip)
+}
+
+const full: Payload = {
+  model: { display_name: 'Opus 4.8 (1M context)' },
+  context_window: { used_percentage: 44, total_input_tokens: 440000, context_window_size: 1000000 },
+  cost: { total_cost_usd: 2.69 },
+  session_name: 'celestial-vega',
+  output_style: { name: 'rc' },
+  pr: { number: 702 },
+  rate_limits: {
+    five_hour: { used_percentage: 61, resets_at: 1_007_860 },
+    seven_day: { used_percentage: 74, resets_at: 1_320_000 },
+  },
+}
+
+test('default-style line: branch, model, context, session, weekly', () => {
+  const [line] = run([{ left: ['branch', 'model', 'context'], right: ['session', 'weekly'] }], ctx(full, 'main'))
+  assert.match(line!, /⎇ main · Opus 4\.8 · 44% ████░░░░░░ \(440k\/1\.0M\) · high/)
+  assert.match(line!, /session 61% \(↻2h11m\) · All 74%/)
+})
+
+test('context variant "pct" shows only the percentage', () => {
+  assert.deepEqual(run([[['context', 'pct']]], ctx(full)), ['44%'])
+})
+
+test('context variant "bar" shows only the bar', () => {
+  assert.deepEqual(run([[['context', 'bar']]], ctx(full)), ['████░░░░░░'])
+})
+
+test('context variant "tokens" shows only the token count', () => {
+  assert.deepEqual(run([[['context', 'tokens']]], ctx(full)), ['(440k/1.0M)'])
+})
+
+test('a bare array is a left-aligned line', () => {
+  assert.deepEqual(run([['cost', 'pr']], ctx(full)), ['$2.69 · PR #702'])
+})
+
+test('an unknown token runs as a shell command', () => {
+  assert.deepEqual(run([['echo hello-from-cmd']], ctx(full)), ['hello-from-cmd'])
+})
+
+test('each entry in lines is one row', () => {
+  const rows = run([['model'], ['cost'], ['pr']], ctx(full))
+  assert.deepEqual(rows, ['Opus 4.8', '$2.69', 'PR #702'])
+})
+
+test('missing data drops the item, and an empty line is skipped', () => {
+  assert.deepEqual(run([['pr'], ['cost']], ctx({})), [])
+})
+
+test('null context renders --', () => {
+  assert.deepEqual(run([['context']], ctx({ context_window: undefined })), ['--'])
+})
+
+test('session_name and output_style widgets', () => {
+  assert.deepEqual(run([['name', 'output']], ctx(full)), ['celestial-vega · /rc'])
+})

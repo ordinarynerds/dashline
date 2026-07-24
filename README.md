@@ -1,9 +1,9 @@
 # dashline
 
-A Claude Code status line in two halves: how full your context window is on the left,
-how much of your subscription you've spent on the right. It tells you to `/compact`
-before quality drops, and shows how much session and weekly budget you have left,
-without opening `/usage`.
+A configurable Claude Code status line. You compose it in `settings.json` by
+listing the fields you want and where they go. No scripting, no bash. It ships with
+a sensible default (context window on the left, subscription usage on the right), so
+it looks right the moment you install it.
 
 ![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
@@ -13,20 +13,16 @@ without opening `/usage`.
 
 ## Why
 
-Two things go wrong in a long Claude Code session:
-
-- The context window fills up. Past a point the model starts dropping detail, and you
-  want to `/compact`, but by the time you notice you're already there.
-- You run into a rate limit you didn't see coming, because the numbers live behind the
-  `/usage` command instead of in front of you.
-
-dashline puts both on screen at all times. The context bar turns yellow, then red with
-a `→ /compact` prompt. The usage side counts down to your next session reset.
+If you want something simpler than a full status-line builder, this is it. Two
+things go wrong in a long Claude Code session: the context window fills up until the
+model starts dropping detail, and you hit a rate limit you never saw coming. dashline
+puts both in front of you, and lets you add anything else the payload knows about by
+naming it in your settings.
 
 ## Install
 
-A Claude Code plugin can't set the main status line on its own, so either way ends with
-`settings.json` pointing at the script. The plugin route runs that step for you.
+A Claude Code plugin can't set the main status line on its own, so either route ends
+with `settings.json` pointing at dashline. The plugin route runs that step for you.
 
 ### As a plugin (recommended)
 
@@ -36,137 +32,160 @@ A Claude Code plugin can't set the main status line on its own, so either way en
 /dashline:install
 ```
 
-`/dashline:install` backs up `settings.json` and points your status line at the
-installed script. Start a new session (or run `/statusline`) to see it.
-
 ### Manual
-
-Clone it and run the installer:
 
 ```bash
 git clone https://github.com/ordinarynerds/dashline.git ~/.claude/dashline
-~/.claude/dashline/scripts/install.sh
+cd ~/.claude/dashline && npm install && npm run build
+./scripts/install.sh
 ```
 
-Or set it by hand in `~/.claude/settings.json`, using the absolute path to the script:
+The installer backs up `settings.json`, points `statusLine` at
+`node dist/dashline.js`, and leaves a `settings.json.bak-dashline-*` file. Undo with
+`./scripts/install.sh --uninstall`. Start a new session or run `/statusline` to see it.
 
-```json
+**Requirements:** Node 18 or newer. That is the only dependency.
+
+## Configure
+
+Everything lives under a `dashline` key in `~/.claude/settings.json` (project
+`.claude/settings.json` and `settings.local.json` override it). This is the default,
+and writing it out reproduces what ships:
+
+```jsonc
 {
-  "statusLine": {
-    "type": "command",
-    "command": "/Users/you/.claude/dashline/statusline/dashline.sh",
-    "refreshInterval": 1
+  "dashline": {
+    "lines": [
+      { "left": ["branch", "model", "context"], "right": ["session", "weekly"] }
+    ]
   }
 }
 ```
 
-To remove it, run `scripts/install.sh --uninstall`, or restore the
-`settings.json.bak-dashline-*` backup the installer leaves behind.
+`lines` is a list, and each entry is one row on screen.
 
-**Requirements:** `bash`, `jq`, and `awk` (present on macOS and most Linux). `perl` is
-used for right-justifying the usage half; without it the two halves fall back to a
-fixed gap.
+**A row** is either a bare array, which is left-aligned:
 
-## Reading it
-
-```
-⎇ main · Opus 4.8 44% ████░░░░░░ (440k/1.0M) · high     session 61% (↻2h11m) · All 74%
+```jsonc
+["branch", "model", "context"]
 ```
 
-**Left: context window**
+or an object with up to three zones that dashline spreads across the width:
 
-- `⎇ main`: the current git branch. In a linked git worktree it also shows the worktree
-  folder, e.g. `⎇ fix (hotfix-wt)`. Hidden outside a repo.
-- `Opus 4.8`: the current model.
-- `44% ████░░░░░░`: how full the window is. Green under 40%, yellow ("high") from 40%,
-  red with `→ /compact [next goal/task]` from 50%. `[next goal/task]` is a reminder that
-  `/compact` takes an instruction: tell it what you're about to do next.
-- `(440k/1.0M)`: tokens in context over the window size.
-
-**Right: subscription usage** (Pro/Max only)
-
-- `session 61%`: the rolling 5-hour window, the same "current session" `/usage` shows.
-- `(↻2h11m)`: time until that session resets, counting down live.
-- `All 74%`: the 7-day weekly limit across all models.
-
-Usage numbers go yellow at 70% and red at 90%.
-
-## Configuration
-
-Every knob is an environment variable, read at each refresh. Set them where Claude Code
-picks up your environment, or edit the defaults at the top of `dashline.sh`.
-
-| Variable                | Default | Effect                                        |
-|-------------------------|---------|-----------------------------------------------|
-| `DASHLINE_WARN`         | `40`    | context turns yellow ("high") at/above this % |
-| `DASHLINE_COMPACT`      | `50`    | context turns red with `→ /compact` here      |
-| `DASHLINE_WIDTH`        | `10`    | context bar width, in characters              |
-| `DASHLINE_USAGE`        | `1`     | set to `0` to hide the usage half             |
-| `DASHLINE_USAGE_WARN`   | `70`    | usage % turns yellow at/above this            |
-| `DASHLINE_USAGE_CRIT`   | `90`    | usage % turns red at/above this               |
-| `DASHLINE_GIT`          | `1`     | set to `0` to hide the git branch/worktree    |
-| `DASHLINE_MARGIN`       | `5`     | columns left free at the right edge           |
-| `DASHLINE_COLS`         | auto    | override terminal width for justification     |
-| `DASHLINE_EXTRA`        | `1`     | set to `0` to skip extra-line scripts         |
-| `DASHLINE_EXTRA_DIR`    | `~/.claude/dashline.d` | directory of extra-line scripts  |
-
-If the right half ever gets cut off with a `…`, raise `DASHLINE_MARGIN`.
-
-## Extra lines
-
-dashline prints one line. If you want more on screen, drop your own scripts into
-`~/.claude/dashline.d/` and each one adds a line (or lines) below the core one.
-
-Any executable file in that directory runs once per refresh. dashline pipes it the
-same JSON payload it got on stdin, then prints whatever the script writes to
-stdout, verbatim, below the core line. Scripts run in filename order, so name them
-`10-worktree`, `20-codemap`, `30-cache` to fix the stacking.
-
-A script owns its own line. Print two lines and you get two rows, which is how a
-project linker or a per-branch build cache expands to as many rows as it needs.
-
-So you don't have to re-parse the payload, dashline exports what it already
-figured out:
-
-| Variable            | What it holds                                    |
-|---------------------|--------------------------------------------------|
-| `DASHLINE_CWD`      | the workspace directory                          |
-| `DASHLINE_BRANCH`   | current branch (short SHA if detached)           |
-| `DASHLINE_WORKTREE` | worktree folder name, empty in the main checkout |
-| `DASHLINE_PCT`      | context-window percent, as an integer            |
-
-`examples/dashline.d/10-worktree.sh` is a working starter: it prints the working
-directory and flags it when you're in a linked worktree. Copy it in and make it
-executable:
-
-```bash
-mkdir -p ~/.claude/dashline.d
-cp examples/dashline.d/10-worktree.sh ~/.claude/dashline.d/
-chmod +x ~/.claude/dashline.d/10-worktree.sh
+```jsonc
+{ "left": ["branch"], "center": ["cwd"], "right": ["cost", "pr"] }
 ```
 
-Each run is wrapped in a short timeout wherever `timeout` or `gtimeout` is present,
-so a slow script won't stall the line. Set `DASHLINE_EXTRA=0` to turn the whole
-thing off, or `DASHLINE_EXTRA_DIR` to point it somewhere else.
+**An item** in a zone is one of:
+
+| Form | Meaning |
+|---|---|
+| `"branch"` | a widget, in its default style |
+| `["model", "red"]` | a widget, recolored (see [styles](#styles)) |
+| `["context", "bar"]` | a widget, in a named variant (see [widgets](#widgets)) |
+| `["context", { "variant": "bar", "color": "yellow" }]` | variant and color together |
+| `"codemap ls --linked"` | anything unrecognized runs as a shell command; its first line of output is shown |
+
+A string is read as a color when it is a known style term, otherwise as a variant, so
+`["model", "red"]` and `["context", "pct"]` both do what they look like.
+
+### Other keys
+
+| Key | Default | Effect |
+|---|---|---|
+| `separator` | `·` | drawn dim between items in a zone |
+| `margin` | `5` | columns kept free at the right edge |
+| `warn` | `40` | context turns yellow ("high") at/above this % |
+| `compact` | `50` | context turns red with `→ /compact` at/above this % |
+| `usageWarn` | `70` | usage widgets turn yellow at/above this % |
+| `usageCrit` | `90` | usage widgets turn red at/above this % |
+
+## Widgets
+
+Every widget reads one part of the JSON payload Claude Code sends on stdin. A widget
+with no data to show removes itself, and a row with nothing left on it is skipped.
+
+| Widget | Shows | From | Default style | Variants |
+|---|---|---|---|---|
+| `branch` | git branch (`⎇ main`) | git | cyan | |
+| `model` | model name | `model.display_name` | bold | |
+| `context` | percent, bar, tokens, `/compact` nudge | `context_window` | green / yellow / red by fill | `full`, `bar`, `pct`, `tokens` |
+| `session` | 5-hour usage percent and reset countdown | `rate_limits.five_hour` | green / yellow / red | |
+| `weekly` | 7-day usage percent | `rate_limits.seven_day` | green / yellow / red | |
+| `cost` | session cost in USD | `cost.total_cost_usd` | green | |
+| `pr` | open PR number (`PR #702`) | `pr.number` | magenta | |
+| `worktree` | linked worktree name (`⌂ hotfix`) | `workspace.git_worktree` or git | yellow | |
+| `cwd` | working directory, `~` collapsed | `workspace.current_dir` | dim | `full`, `basename` |
+| `name` | session name | `session_name` | dim | |
+| `output` | output style (`/rc`) | `output_style.name` | dim | |
+| `effort` | reasoning effort | `effort.level` | dim | |
+
+The usage widgets (`session`, `weekly`) appear on Pro and Max accounts after the first
+response of a session, when the payload starts carrying rate limits.
+
+## Styles
+
+A style term is one or more of these words, so `"bold red"` is valid:
+
+`red` · `green` · `yellow` · `blue` · `magenta` · `cyan` · `gray` · `dim` · `bold`
+
+Recoloring an item replaces its whole look with that color. The color-by-fill widgets
+(`context`, `session`, `weekly`) lose their meaning when you recolor them, so leave
+those alone unless you want a fixed color.
+
+## Examples
+
+Two lines, a custom left/right split, and a plain directory row:
+
+```jsonc
+{
+  "dashline": {
+    "lines": [
+      { "left": ["model", "name"], "right": ["output"] },
+      { "left": ["branch", ["context", "pct"]], "right": ["cost", "pr"] },
+      ["cwd"]
+    ]
+  }
+}
+```
+
+Fold in your own tools as command rows. Each command is given the same JSON on stdin,
+plus `DASHLINE_BRANCH`, `DASHLINE_WORKTREE`, and `DASHLINE_CWD` in its environment:
+
+```jsonc
+{
+  "dashline": {
+    "lines": [
+      { "left": ["branch", "context"], "right": ["session", "weekly"] },
+      ["codemap ls --linked"],
+      ["kache stat --branch \"$DASHLINE_BRANCH\""]
+    ]
+  }
+}
+```
 
 ## How it works
 
-Claude Code hands the status-line command a JSON payload on stdin. dashline reads it and
-prints one line: no network calls, no transcript parsing, nothing that drifts out of
-sync between releases.
+Claude Code hands the status-line command a JSON payload on stdin. dashline reads it,
+reads your `dashline` config from the settings files, and prints one line per entry in
+`lines`. No network, no transcript parsing, nothing that drifts between releases.
 
-- Context comes from `context_window` (`used_percentage`, `total_input_tokens`,
-  `context_window_size`) and `model.display_name`. When it's `null` (right after a
-  `/compact`, or before the first response), the left side shows `--`.
-- Usage comes from `rate_limits.five_hour` and `rate_limits.seven_day`, each with a
-  `used_percentage` and a `resets_at` epoch. These appear for Pro/Max accounts after the
-  first response of a session.
-- The git branch isn't in the payload, so dashline reads it from `git` in
-  `workspace.current_dir` (one `rev-parse`), and shows the worktree name when that dir is
-  a linked worktree.
+Each widget is a small pure function from the payload to a string. The git branch and
+worktree are the one thing not in the payload, so dashline asks `git` once. A command
+item runs in a 2-second timeout, so a slow tool can't stall the line.
 
-The payload carries only those two windows, so there's no per-model weekly breakdown to
-show. Every field is optional; a missing one just drops its part of the line.
+## Develop
+
+```bash
+npm install
+npm test          # node's test runner over src
+npm run build     # bundle src to dist/dashline.js
+npm run typecheck
+```
+
+Source is in `src/`: `widgets/` holds one file per field, `render.ts` lays out the
+zones, `layout.ts` justifies a line, `config.ts` reads and merges settings. Adding a
+widget is one file plus one line in `widgets/registry.ts`.
 
 ## License
 
