@@ -83,3 +83,26 @@ test('null context renders --', () => {
 test('session_name and output_style widgets', () => {
   assert.deepEqual(run([['name', 'output']], ctx(full)), ['celestial-vega · /rc'])
 })
+
+test('cost-derived widgets: duration and lines', () => {
+  const p: Payload = {
+    cost: { total_cost_usd: 2.69, total_duration_ms: 2_220_000, total_lines_added: 156, total_lines_removed: 23 },
+  }
+  assert.deepEqual(run([['duration']], ctx(p)), ['37m'])
+  assert.deepEqual(run([['lines']], ctx(p)), ['+156 -23'])
+})
+
+test('repo widget, name by default and owner/name in the full variant', () => {
+  const p: Payload = { workspace: { repo: { owner: 'ordinarynerds', name: 'dashline' } } }
+  assert.deepEqual(run([['repo']], ctx(p)), ['dashline'])
+  assert.deepEqual(run([[['repo', 'full']]], ctx(p)), ['ordinarynerds/dashline'])
+})
+
+test('review formats the PR state', () => {
+  assert.deepEqual(run([['review']], ctx({ pr: { review_state: 'changes_requested' } })), ['changes requested'])
+})
+
+test('flag widgets appear only when their flag is on', () => {
+  assert.deepEqual(run([['fast', 'thinking']], ctx({})), [])
+  assert.deepEqual(run([['fast']], ctx({ fast_mode: true })), ['fast'])
+})

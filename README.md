@@ -102,26 +102,49 @@ A string is read as a color when it is a known style term, otherwise as a varian
 
 ## Widgets
 
-Every widget reads one part of the JSON payload Claude Code sends on stdin. A widget
-with no data to show removes itself, and a row with nothing left on it is skipped.
+Each widget reads one part of the JSON payload Claude Code sends on stdin, and every
+one is choosable by name. A widget with no data removes itself, and a row left with
+nothing on it is skipped.
 
-| Widget | Shows | From | Default style | Variants |
+Every item can take a **color** (see [Styles](#styles)). Some also take a **variant**
+(a different way to show the same data). The one string after the name is read as a
+color if it is a known color word, otherwise as a variant, and the object form sets
+either or both:
+
+```jsonc
+"branch"                                  // default
+["model", "cyan"]                         // color
+["cwd", "basename"]                       // variant
+["context", { "variant": "bar", "bar": "fine", "color": "yellow" }]
+```
+
+| Widget | Example | Displays | Payload field | Variants |
 |---|---|---|---|---|
-| `branch` | git branch (`⎇ main`) | git | cyan | |
-| `model` | model name | `model.display_name` | bold | |
-| `context` | percent, bar, tokens, `/compact` nudge | `context_window` | green / yellow / red by fill | `full`, `bar`, `pct`, `tokens` |
-| `session` | 5-hour usage percent and reset countdown | `rate_limits.five_hour` | green / yellow / red | |
-| `weekly` | 7-day usage percent | `rate_limits.seven_day` | green / yellow / red | |
-| `cost` | session cost in USD | `cost.total_cost_usd` | green | |
-| `pr` | open PR number (`PR #702`) | `pr.number` | magenta | |
-| `worktree` | linked worktree name (`⌂ hotfix`) | `workspace.git_worktree` or git | yellow | |
-| `cwd` | working directory, `~` collapsed | `workspace.current_dir` | dim | `full`, `basename` |
-| `name` | session name | `session_name` | dim | |
-| `output` | output style (`/rc`) | `output_style.name` | dim | |
-| `effort` | reasoning effort | `effort.level` | dim | |
+| `branch` | `⎇ main` | git branch | git | |
+| `model` | `Opus 4.8` | model name | `model.display_name` | |
+| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | how full the window is | `context_window` | `full`, `bar`, `pct`, `tokens` + [bar styles](#bar-styles) |
+| `session` | `session 61% (↻2h11m)` | 5-hour usage and reset | `rate_limits.five_hour` | |
+| `weekly` | `All 74%` | 7-day usage | `rate_limits.seven_day` | |
+| `cost` | `$2.69` | session cost in USD | `cost.total_cost_usd` | |
+| `duration` | `37m` | wall-clock this session | `cost.total_duration_ms` | |
+| `lines` | `+156 -23` | lines added and removed | `cost.total_lines_added` / `_removed` | |
+| `pr` | `PR #702` | open PR number | `pr.number` | |
+| `review` | `pending` | PR review state | `pr.review_state` | |
+| `worktree` | `⌂ hotfix` | linked worktree | `workspace.git_worktree` | |
+| `cwd` | `~/Development/dashline` | working directory | `workspace.current_dir` | `full`, `basename` |
+| `repo` | `dashline` | repository name | `workspace.repo` | `full` (owner/name) |
+| `effort` | `high` | reasoning effort | `effort.level` | |
+| `name` | `celestial-vega` | session name | `session_name` | |
+| `output` | `/default` | output style | `output_style.name` | |
+| `version` | `v2.1.90` | Claude Code version | `version` | |
+| `fast` | `fast` | shown when fast mode is on | `fast_mode` | |
+| `thinking` | `thinking` | shown when thinking is on | `thinking.enabled` | |
+| `vim` | `NORMAL` | vim mode | `vim.mode` | |
+| `agent` | `security-reviewer` | active subagent | `agent.name` | |
 
-The usage widgets (`session`, `weekly`) appear on Pro and Max accounts after the first
-response of a session, when the payload starts carrying rate limits.
+`context`, `session`, and `weekly` color themselves by fill (green to red). The usage
+pair appears on Pro and Max accounts once the payload starts carrying rate limits.
+Anything not in this list is treated as a shell command (see [Examples](#examples)).
 
 ## Styles
 
@@ -139,7 +162,7 @@ The `context` bar is drawn with blocks by default. Pick another with a `bar` opt
 
 ```jsonc
 ["context", { "bar": "fine" }]
-["context", { "variant": "bar", "bar": "dots" }]
+["context", { "variant": "bar", "bar": "line" }]
 ```
 
 | `bar` | 44% of 10 | |

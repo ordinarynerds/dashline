@@ -4,6 +4,15 @@ export function human(n: number): string {
   return `${Math.round(n)}`
 }
 
+export function duration(ms: number): string {
+  const s = Math.floor(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`
+  if (m > 0) return `${m}m`
+  return `${s}s`
+}
+
 export function countdown(resetsAt: number, now: number): string {
   const d = Math.max(0, resetsAt - now)
   const days = Math.floor(d / 86400)

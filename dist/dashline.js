@@ -61,6 +61,14 @@ function human(n) {
   if (n >= 1e3) return `${Math.round(n / 1e3)}k`;
   return `${Math.round(n)}`;
 }
+function duration(ms) {
+  const s = Math.floor(ms / 1e3);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor(s % 3600 / 60);
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
 function countdown(resetsAt, now) {
   const d = Math.max(0, resetsAt - now);
   const days = Math.floor(d / 86400);
@@ -172,12 +180,46 @@ var cost = {
   }
 };
 
+// src/widgets/duration.ts
+var duration2 = {
+  render({ payload: payload2 }) {
+    const ms = payload2.cost?.total_duration_ms;
+    if (ms == null) return null;
+    return paint(duration(ms), "dim");
+  }
+};
+
+// src/widgets/lines.ts
+var lines = {
+  render({ payload: payload2 }) {
+    const added = payload2.cost?.total_lines_added;
+    const removed = payload2.cost?.total_lines_removed;
+    if (added == null && removed == null) return null;
+    return `${paint(`+${added ?? 0}`, "green")} ${paint(`-${removed ?? 0}`, "red")}`;
+  }
+};
+
 // src/widgets/pr.ts
 var pr = {
   render({ payload: payload2 }) {
     const n = payload2.pr?.number;
     if (n == null) return null;
     return paint(`PR #${n}`, "magenta");
+  }
+};
+
+// src/widgets/review.ts
+var COLORS = {
+  approved: "green",
+  pending: "yellow",
+  changes_requested: "red",
+  draft: "dim"
+};
+var review = {
+  render({ payload: payload2 }) {
+    const state = payload2.pr?.review_state;
+    if (!state) return null;
+    return paint(state.replace(/_/g, " "), COLORS[state] ?? "dim");
   }
 };
 
@@ -200,6 +242,16 @@ var cwd = {
     const home = homedir();
     const shown = home && dir2.startsWith(home) ? `~${dir2.slice(home.length)}` : dir2;
     return paint(shown, "dim");
+  }
+};
+
+// src/widgets/repo.ts
+var repo = {
+  render({ payload: payload2 }, opts) {
+    const r = payload2.workspace?.repo;
+    if (!r?.name) return null;
+    const text = opts.variant === "full" && r.owner ? `${r.owner}/${r.name}` : r.name;
+    return paint(text, "dim");
   }
 };
 
@@ -230,6 +282,40 @@ var output = {
   }
 };
 
+// src/widgets/version.ts
+var version = {
+  render({ payload: payload2 }) {
+    if (!payload2.version) return null;
+    return paint(`v${payload2.version}`, "dim");
+  }
+};
+
+// src/widgets/flags.ts
+var fast = {
+  render({ payload: payload2 }) {
+    return payload2.fast_mode ? paint("fast", "yellow") : null;
+  }
+};
+var thinking = {
+  render({ payload: payload2 }) {
+    return payload2.thinking?.enabled ? paint("thinking", "dim") : null;
+  }
+};
+var vim = {
+  render({ payload: payload2 }) {
+    const mode = payload2.vim?.mode;
+    if (!mode) return null;
+    return paint(mode, "dim");
+  }
+};
+var agent = {
+  render({ payload: payload2 }) {
+    const n = payload2.agent?.name;
+    if (!n) return null;
+    return paint(n, "magenta");
+  }
+};
+
 // src/widgets/registry.ts
 var registry = {
   branch,
@@ -238,12 +324,21 @@ var registry = {
   session,
   weekly,
   cost,
+  duration: duration2,
+  lines,
   pr,
+  review,
   worktree,
   cwd,
+  repo,
   effort,
   name,
-  output
+  output,
+  version,
+  fast,
+  thinking,
+  vim,
+  agent
 };
 var widgetNames = new Set(Object.keys(registry));
 
@@ -279,9 +374,9 @@ function loadConfig(payload2) {
     if (found.lines !== void 0) linesTrusted = trusted.has(file);
     merged = Object.assign(merged, found);
   }
-  let lines2 = merged.lines ?? DEFAULT_LINES;
-  if (!linesTrusted) lines2 = lines2.map(withoutCommands);
-  return { ...DEFAULTS, ...merged, lines: lines2 };
+  let lines3 = merged.lines ?? DEFAULT_LINES;
+  if (!linesTrusted) lines3 = lines3.map(withoutCommands);
+  return { ...DEFAULTS, ...merged, lines: lines3 };
 }
 function withoutCommands(line) {
   if (Array.isArray(line)) return line.filter(isWidget);
@@ -442,8 +537,8 @@ var ctx = {
   now: Math.floor(Date.now() / 1e3)
 };
 var columns = Number(process.env.COLUMNS) || 80;
-var lines = render(config, ctx, columns);
-if (lines.length > 0) process.stdout.write(`${lines.join("\n")}
+var lines2 = render(config, ctx, columns);
+if (lines2.length > 0) process.stdout.write(`${lines2.join("\n")}
 `);
 async function readStdin() {
   const chunks = [];

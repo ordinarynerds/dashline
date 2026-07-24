@@ -27,6 +27,11 @@ export interface Payload {
   session_name?: string
   output_style?: { name?: string }
   pr?: { number?: number; url?: string; review_state?: string }
+  version?: string
+  fast_mode?: boolean
+  thinking?: { enabled?: boolean }
+  vim?: { mode?: string }
+  agent?: { name?: string }
 }
 
 export interface RateWindow {
