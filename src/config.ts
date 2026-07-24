@@ -5,7 +5,12 @@ import type { Payload } from './payload.ts'
 import type { WidgetOpts } from './widgets/types.ts'
 import { widgetNames } from './widgets/registry.ts'
 
-export type Item = string | [string, string | WidgetOpts]
+export interface TextItem {
+  text: string
+  color?: string
+}
+
+export type Item = string | [string, string | WidgetOpts] | TextItem
 
 export interface Zones {
   left?: Item[]
@@ -19,19 +24,19 @@ export interface DashlineConfig {
   lines: LineSpec[]
   separator: string
   margin: number
-  warn: number
-  compact: number
-  usageWarn: number
-  usageCrit: number
+  contextWarningAt: number
+  contextCriticalAt: number
+  usageWarningAt: number
+  usageCriticalAt: number
 }
 
 const DEFAULTS: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
-  warn: 40,
-  compact: 50,
-  usageWarn: 70,
-  usageCrit: 90,
+  contextWarningAt: 40,
+  contextCriticalAt: 50,
+  usageWarningAt: 70,
+  usageCriticalAt: 90,
 }
 
 const DEFAULT_LINES: LineSpec[] = [
@@ -69,18 +74,22 @@ export function loadConfig(payload: Payload): DashlineConfig {
 }
 
 // Commands only run from the user's own settings. Config that rides in through a
-// project (a cloned repo) may arrange widgets but never introduce a command.
+// project (a cloned repo) may arrange widgets and text but never introduce a command.
 function withoutCommands(line: LineSpec): LineSpec {
-  if (Array.isArray(line)) return line.filter(isWidget)
+  if (Array.isArray(line)) return line.filter(keep)
   const zones: Zones = {}
-  if (line.left) zones.left = line.left.filter(isWidget)
-  if (line.center) zones.center = line.center.filter(isWidget)
-  if (line.right) zones.right = line.right.filter(isWidget)
+  if (line.left) zones.left = line.left.filter(keep)
+  if (line.center) zones.center = line.center.filter(keep)
+  if (line.right) zones.right = line.right.filter(keep)
   return zones
 }
 
-function isWidget(item: Item): boolean {
-  return widgetNames.has(Array.isArray(item) ? item[0] : item)
+// A command is a bare string (or [id, ...]) whose id is not a widget. Widget items
+// and text items are safe to keep from an untrusted source.
+function keep(item: Item): boolean {
+  if (typeof item === 'string') return widgetNames.has(item)
+  if (Array.isArray(item)) return widgetNames.has(item[0])
+  return true
 }
 
 function read(file: string): Partial<DashlineConfig> {

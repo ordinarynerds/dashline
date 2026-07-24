@@ -247,10 +247,10 @@ var widgetNames = new Set(Object.keys(registry));
 var DEFAULTS = {
   separator: "\xB7",
   margin: 5,
-  warn: 40,
-  compact: 50,
-  usageWarn: 70,
-  usageCrit: 90
+  contextWarningAt: 40,
+  contextCriticalAt: 50,
+  usageWarningAt: 70,
+  usageCriticalAt: 90
 };
 var DEFAULT_LINES = [
   { left: ["branch", "model", "context"], right: ["session", "weekly"] }
@@ -280,15 +280,17 @@ function loadConfig(payload2) {
   return { ...DEFAULTS, ...merged, lines: lines3 };
 }
 function withoutCommands(line) {
-  if (Array.isArray(line)) return line.filter(isWidget);
+  if (Array.isArray(line)) return line.filter(keep);
   const zones = {};
-  if (line.left) zones.left = line.left.filter(isWidget);
-  if (line.center) zones.center = line.center.filter(isWidget);
-  if (line.right) zones.right = line.right.filter(isWidget);
+  if (line.left) zones.left = line.left.filter(keep);
+  if (line.center) zones.center = line.center.filter(keep);
+  if (line.right) zones.right = line.right.filter(keep);
   return zones;
 }
-function isWidget(item) {
-  return widgetNames.has(Array.isArray(item) ? item[0] : item);
+function keep(item) {
+  if (typeof item === "string") return widgetNames.has(item);
+  if (Array.isArray(item)) return widgetNames.has(item[0]);
+  return true;
 }
 function read(file) {
   try {
@@ -457,20 +459,26 @@ function percent2(d, opts, ctx2) {
   if (label2) parts.push(paint(label2, "dim"));
   parts.push(number);
   if (d.defaultBar || opts.bar) parts.push(meter);
-  if (d.tokens) parts.push(paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim"));
-  if (d.hint && d.value >= ctx2.thresholds.compact) {
-    parts.push(`${paint("\u2192 /compact", "bold red")} ${paint("[next goal/task]", "dim")}`);
-  } else if (d.hint && d.value >= ctx2.thresholds.warn) {
+  if (d.tokens)
+    parts.push(
+      paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim")
+    );
+  if (d.hint && d.value >= ctx2.thresholds.critical) {
+    parts.push(
+      `${paint("\u2192 /compact", "bold red")} ${paint("[focus instructions]", "dim")}`
+    );
+  } else if (d.hint && d.value >= ctx2.thresholds.warning) {
     parts.push(paint("\xB7 high", "yellow"));
   }
-  if (d.reset && opts.countdown !== false) parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
+  if (d.reset && opts.countdown !== false)
+    parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
   return parts.join(" ");
 }
 function fillColor(d, opts, ctx2) {
   const t = ctx2.thresholds;
-  const warn = opts.warn ?? (d.scale === "context" ? t.warn : t.usageWarn);
-  const crit = opts.crit ?? (d.scale === "context" ? t.compact : t.usageCrit);
-  return d.value >= crit ? "red" : d.value >= warn ? "yellow" : "green";
+  const warning = opts.warningAt ?? (d.scale === "context" ? t.warning : t.usageWarning);
+  const critical = opts.criticalAt ?? (d.scale === "context" ? t.critical : t.usageCritical);
+  return d.value >= critical ? "red" : d.value >= warning ? "yellow" : "green";
 }
 
 // src/present/scalars.ts
@@ -595,6 +603,10 @@ function renderZone(items, ctx2, sep) {
   return parts.join(sep);
 }
 function renderItem(item, ctx2) {
+  if (typeof item === "object" && !Array.isArray(item)) {
+    if (!item.text) return null;
+    return item.color ? paint(item.text, item.color) : item.text;
+  }
   const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
   const opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
   const widget = registry[id];
@@ -614,10 +626,10 @@ var ctx = {
   payload,
   git: readGit(dir, payload.workspace?.git_worktree),
   thresholds: {
-    warn: config.warn,
-    compact: config.compact,
-    usageWarn: config.usageWarn,
-    usageCrit: config.usageCrit
+    warning: config.contextWarningAt,
+    critical: config.contextCriticalAt,
+    usageWarning: config.usageWarningAt,
+    usageCritical: config.usageCriticalAt
   },
   now: Math.floor(Date.now() / 1e3)
 };

@@ -9,7 +9,7 @@ import type { Percent, Label } from '../src/datum.ts'
 const ctx: Ctx = {
   payload: {},
   git: {},
-  thresholds: { warn: 40, compact: 50, usageWarn: 70, usageCrit: 90 },
+  thresholds: { warning: 40, critical: 50, usageWarning: 70, usageCritical: 90 },
   now: 1000,
 }
 
@@ -20,8 +20,8 @@ test('percent: per-item bar width', () => {
 
 test('percent: per-item warn/crit override the color', () => {
   const d: Percent = { kind: 'percent', value: 44, scale: 'context' }
-  assert.match(percent(d, { variant: 'pct', crit: 30 }, ctx), /1;31m/) // red at 44 when crit is 30
-  assert.match(percent(d, { variant: 'pct', warn: 60, crit: 80 }, ctx), /1;32m/) // green when raised
+  assert.match(percent(d, { variant: 'pct', criticalAt: 30 }, ctx), /1;31m/) // red at 44 when critical is 30
+  assert.match(percent(d, { variant: 'pct', warningAt: 60, criticalAt: 80 }, ctx), /1;32m/) // green when raised
 })
 
 test('percent: label override and countdown toggle', () => {

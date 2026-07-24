@@ -9,17 +9,17 @@ import type { Payload } from '../src/payload.ts'
 const base: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
   margin: 5,
-  warn: 40,
-  compact: 50,
-  usageWarn: 70,
-  usageCrit: 90,
+  contextWarningAt: 40,
+  contextCriticalAt: 50,
+  usageWarningAt: 70,
+  usageCriticalAt: 90,
 }
 
 function ctx(payload: Payload, branch?: string): Ctx {
   return {
     payload,
     git: branch ? { branch } : {},
-    thresholds: { warn: 40, compact: 50, usageWarn: 70, usageCrit: 90 },
+    thresholds: { warning: 40, critical: 50, usageWarning: 70, usageCritical: 90 },
     now: 1_000_000,
   }
 }
@@ -138,4 +138,13 @@ test('label presentations: basename and truncate', () => {
 
 test('flag presentation: onoff shows even when off', () => {
   assert.deepEqual(run([[['fast', 'onoff']]], ctx({})), ['fast:off'])
+})
+
+test('a { text } item renders literal text alongside widgets', () => {
+  assert.deepEqual(run([[{ text: 'hello' }, 'model']], ctx({ model: { display_name: 'Opus 4.8' } })), ['hello · Opus 4.8'])
+})
+
+test('a { text } item takes a color and an empty one is dropped', () => {
+  assert.match(render({ ...base, lines: [[{ text: 'hi', color: 'red' }]] }, ctx({}), 120)[0]!, /1;31m/)
+  assert.deepEqual(run([[{ text: '' }]], ctx({})), [])
 })

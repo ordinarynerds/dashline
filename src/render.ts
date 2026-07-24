@@ -36,6 +36,11 @@ function renderZone(items: Item[] | undefined, ctx: Ctx, sep: string): string {
 }
 
 function renderItem(item: Item, ctx: Ctx): string | null {
+  if (typeof item === 'object' && !Array.isArray(item)) {
+    if (!item.text) return null
+    return item.color ? paint(item.text, item.color) : item.text
+  }
+
   const [id, raw] = Array.isArray(item) ? item : [item, undefined]
   const opts: WidgetOpts =
     typeof raw === 'string' ? (isStyle(raw) ? { color: raw } : { variant: raw }) : (raw ?? {})

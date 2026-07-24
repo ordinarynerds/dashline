@@ -42,10 +42,10 @@ and leaves a `settings.json.bak-dashline-*` file. Undo with `./scripts/install.s
 
 ## Quick start
 
-The whole config is a `dashline` key in `~/.claude/settings.json`. Each entry in `lines`
-is one row on screen. This is the default, written out:
+The config is a `dashline` key in `~/.claude/settings.json`. Each entry in `lines` is one
+row. This is the default:
 
-```jsonc
+```json
 {
   "dashline": {
     "lines": [
@@ -55,14 +55,15 @@ is one row on screen. This is the default, written out:
 }
 ```
 
-An **item** is one of five shapes:
+An **item** is one of six shapes:
 
 ```jsonc
-"branch"                                       // a widget
-["model", "cyan"]                              // widget + a color
-["cwd", "basename"]                            // widget + a variant (a different drawing)
+"branch"                                       // widget
+["model", "cyan"]                              // widget + color
+["cwd", "basename"]                            // widget + variant
 ["session", { "bar": "fine", "label": "5h" }]  // widget + options
-"kache stat"                                   // any other string runs as a shell command
+{ "text": "api", "color": "dim" }              // literal text
+"kache stat"                                   // any unrecognized string runs as a shell command
 ```
 
 A **row** is either a bare array like `["branch", "model"]` (left-aligned), or a
@@ -72,11 +73,11 @@ The [reference](#reference) lists every widget and option.
 
 ## Recipes
 
-Paste any of these into `dashline.lines`. Each shows the config and how it renders.
+Paste into `dashline.lines`.
 
 **Cost and PR on the right**
 
-```jsonc
+```json
 { "left": ["branch", "model", "context"], "right": ["cost", "pr", "session"] }
 ```
 
@@ -86,7 +87,7 @@ Paste any of these into `dashline.lines`. Each shows the config and how it rende
 
 **Usage as bars**
 
-```jsonc
+```json
 { "left": ["branch", "context"], "right": [["session", "bar"], ["weekly", "bar"]] }
 ```
 
@@ -96,7 +97,7 @@ Paste any of these into `dashline.lines`. Each shows the config and how it rende
 
 **Numbers only**
 
-```jsonc
+```json
 ["branch", ["context", "pct"], ["session", "pct"]]
 ```
 
@@ -109,7 +110,7 @@ Paste any of these into `dashline.lines`. Each shows the config and how it rende
 Command rows get the payload on stdin plus `$DASHLINE_BRANCH`, `$DASHLINE_WORKTREE`, and
 `$DASHLINE_CWD`. The second line here is whatever the command prints.
 
-```jsonc
+```json
 [
   { "left": ["branch", "context"], "right": ["session", "weekly"] },
   ["kache stat --branch \"$DASHLINE_BRANCH\""]
@@ -123,7 +124,7 @@ kache main 94% hot (saved 3m12s)
 
 **Rename and trim a widget**
 
-```jsonc
+```json
 { "left": [["session", { "label": "5h", "countdown": false, "bar": "fine", "width": 16 }]] }
 ```
 
@@ -135,33 +136,33 @@ kache main 94% hot (saved 3m12s)
 
 ### Widgets
 
-Every widget reads one field of the payload and has a data type; the type decides how it
-can be drawn. A widget with no data hides itself, and a row left empty is skipped.
-Anything not listed here runs as a shell command.
+Each widget reads one field of the payload; the right column is its type. A widget with no
+data hides itself, and an empty row is skipped. An unrecognized bare string runs as a shell
+command, and a `{ "text": ... }` item is printed literally.
 
-| Widget | Example | Displays | Type |
-|---|---|---|---|
-| `branch` | `⎇ main` | git branch | label |
-| `model` | `Opus 4.8` | model name | label |
-| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | model context | percent |
-| `session` | `session 61% (↻2h11m)` | session usage and reset | percent |
-| `weekly` | `All 74%` | weekly usage | percent |
-| `cost` | `$2.69` | session cost | money |
-| `duration` | `37m` | wall-clock this session | duration |
-| `lines` | `+156 -23` | lines added and removed | delta |
-| `pr` | `PR #702` | open PR number | label |
-| `review` | `pending` | PR review state | label |
-| `worktree` | `⌂ hotfix` | linked worktree | label |
-| `cwd` | `~/Development/dashline` | working directory | label |
-| `repo` | `dashline` | repository name | label |
-| `effort` | `high` | reasoning effort | label |
-| `name` | `celestial-vega` | session name | label |
-| `output` | `/default` | output style | label |
-| `version` | `v2.1.90` | Claude Code version | label |
-| `fast` | `fast` | fast mode | flag |
-| `thinking` | `thinking` | extended thinking | flag |
-| `vim` | `NORMAL` | vim mode | label |
-| `agent` | `security-reviewer` | active subagent | label |
+| Widget     | Example                             | Displays                | Type     |
+| ---------- | ----------------------------------- | ----------------------- | -------- |
+| `branch`   | `⎇ main`                            | git branch              | label    |
+| `model`    | `Opus 4.8`                          | model name              | label    |
+| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | model context           | percent  |
+| `session`  | `session 61% (↻2h11m)`              | session usage and reset | percent  |
+| `weekly`   | `All 74%`                           | weekly usage            | percent  |
+| `cost`     | `$2.69`                             | session cost            | money    |
+| `duration` | `37m`                               | wall-clock this session | duration |
+| `lines`    | `+156 -23`                          | lines added and removed | delta    |
+| `pr`       | `PR #702`                           | open PR number          | label    |
+| `review`   | `pending`                           | PR review state         | label    |
+| `worktree` | `⌂ hotfix`                          | linked worktree         | label    |
+| `cwd`      | `~/Development/dashline`            | working directory       | label    |
+| `repo`     | `dashline`                          | repository name         | label    |
+| `effort`   | `high`                              | reasoning effort        | label    |
+| `name`     | `celestial-vega`                    | session name            | label    |
+| `output`   | `/default`                          | output style            | label    |
+| `version`  | `v2.1.90`                           | Claude Code version     | label    |
+| `fast`     | `fast`                              | fast mode               | flag     |
+| `thinking` | `thinking`                          | extended thinking       | flag     |
+| `vim`      | `NORMAL`                            | vim mode                | label    |
+| `agent`    | `security-reviewer`                 | active subagent         | label    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
 pair appears on Pro and Max once the payload carries rate limits.
@@ -171,14 +172,14 @@ pair appears on Pro and Max once the payload carries rate limits.
 A presentation works by type, not by widget: any `percent` widget takes any `percent`
 presentation. Pass it as the item's variant. The first in each row is the default.
 
-| Type | Presentations |
-|---|---|
-| `percent` | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
-| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`) |
-| `money` | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`) |
-| `delta` | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`) |
-| `label` | `text`, `basename`, `upper`, `lower`, `truncate:N` |
-| `flag` | `on` (hidden when off), `onoff` (`fast:off`) |
+| Type       | Presentations                                                                                                                |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `percent`  | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
+| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`)                                                                       |
+| `money`    | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`)                                                                            |
+| `delta`    | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`)                                                                        |
+| `label`    | `text`, `basename`, `upper`, `lower`, `truncate:N`                                                                           |
+| `flag`     | `on` (hidden when off), `onoff` (`fast:off`)                                                                                 |
 
 The `percent` default draws the number, bar, tokens, and countdown when each is present.
 The reductive presentations (`bar`, `pct`, `tokens`) draw only that part.
@@ -188,17 +189,17 @@ The reductive presentations (`bar`, `pct`, `tokens`) draw only that part.
 Object-form keys that change what a widget shows rather than how. Combine them with
 `variant`, `bar`, and `color`.
 
-| Option | Types | Effect |
-|---|---|---|
-| `label` | percent | rename the prefix, such as `session` to `5h` |
-| `countdown` | percent | set `false` to drop the reset countdown |
-| `warn`, `crit` | percent | color thresholds for this item, above the global ones |
-| `width` | percent | bar width in columns |
-| `bar` | percent | bar glyph style (see [bar styles](#bar-styles)) |
-| `truncate` | label | shorten the text to N characters with an ellipsis |
-| `icon` | label | a glyph placed before the text |
-| `color` | any | a fixed color (see below) |
-| `variant` | any | which presentation to draw |
+| Option         | Types   | Effect                                                |
+| -------------- | ------- | ----------------------------------------------------- |
+| `label`        | percent | rename the prefix, such as `session` to `5h`          |
+| `countdown`    | percent | set `false` to drop the reset countdown               |
+| `warningAt`, `criticalAt` | percent | color thresholds for this item, overriding the global ones |
+| `width`        | percent | bar width in columns                                  |
+| `bar`          | percent | bar glyph style (see [bar styles](#bar-styles))       |
+| `truncate`     | label   | shorten the text to N characters with an ellipsis     |
+| `icon`         | label   | a glyph placed before the text                        |
+| `color`        | any     | a fixed color (see below)                             |
+| `variant`      | any     | which presentation to draw                            |
 
 ### Colors
 
@@ -214,13 +215,13 @@ normally color themselves by fill; a fixed color removes that signal.
 Any `percent` bar takes a `bar` glyph style. Every style is single-cell, so the bar
 stays the same width whichever you pick.
 
-| `bar` | 44% of 10 | |
-|---|---|---|
-| `blocks` (default) | `████░░░░░░` | sharp |
-| `shade` | `▓▓▓▓░░░░░░` | softer fill |
-| `line` | `━━━━──────` | thin |
-| `ascii` | `[###-----]` | brackets counted inside the width |
-| `fine` | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
+| `bar`              | 44% of 10    |                                     |
+| ------------------ | ------------ | ----------------------------------- |
+| `blocks` (default) | `████░░░░░░` | sharp                               |
+| `shade`            | `▓▓▓▓░░░░░░` | softer fill                         |
+| `line`             | `━━━━──────` | thin                                |
+| `ascii`            | `[###-----]` | brackets counted inside the width   |
+| `fine`             | `████▍░░░░░` | smooth, 8 sub-cell steps per column |
 
 ### Config keys
 
@@ -230,10 +231,10 @@ Alongside `lines`, the `dashline` object takes:
 |---|---|---|
 | `separator` | `·` | drawn dim between items in a zone |
 | `margin` | `5` | columns kept free at the right edge |
-| `warn` | `40` | context turns yellow ("high") at/above this % |
-| `compact` | `50` | context turns red with `→ /compact` at/above this % |
-| `usageWarn` | `70` | usage widgets turn yellow at/above this % |
-| `usageCrit` | `90` | usage widgets turn red at/above this % |
+| `contextWarningAt` | `40` | context turns yellow ("high") at/above this % |
+| `contextCriticalAt` | `50` | context turns red with the `→ /compact` nudge at/above this % |
+| `usageWarningAt` | `70` | usage widgets turn yellow at/above this % |
+| `usageCriticalAt` | `90` | usage widgets turn red at/above this % |
 
 ## How it works
 

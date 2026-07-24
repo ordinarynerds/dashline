@@ -13,10 +13,10 @@ const ctx: Ctx = {
   payload,
   git: readGit(dir, payload.workspace?.git_worktree),
   thresholds: {
-    warn: config.warn,
-    compact: config.compact,
-    usageWarn: config.usageWarn,
-    usageCrit: config.usageCrit,
+    warning: config.contextWarningAt,
+    critical: config.contextCriticalAt,
+    usageWarning: config.usageWarningAt,
+    usageCritical: config.usageCriticalAt,
   },
   now: Math.floor(Date.now() / 1000),
 }

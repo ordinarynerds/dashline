@@ -3,10 +3,10 @@ import type { GitInfo } from '../util/git.ts'
 import type { Datum } from '../datum.ts'
 
 export interface Thresholds {
-  warn: number
-  compact: number
-  usageWarn: number
-  usageCrit: number
+  warning: number
+  critical: number
+  usageWarning: number
+  usageCritical: number
 }
 
 export interface Ctx {
@@ -24,8 +24,8 @@ export interface WidgetOpts {
   // data
   label?: string
   countdown?: boolean
-  warn?: number
-  crit?: number
+  warningAt?: number
+  criticalAt?: number
   width?: number
   truncate?: number
   icon?: string
