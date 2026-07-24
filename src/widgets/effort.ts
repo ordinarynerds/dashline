@@ -1,10 +1,9 @@
 import type { Widget } from './types.ts'
-import { paint } from '../style.ts'
 
 export const effort: Widget = {
-  render({ payload }) {
+  data({ payload }) {
     const level = payload.effort?.level
     if (!level) return null
-    return paint(level, 'dim')
+    return { kind: 'label', text: level, color: 'dim' }
   },
 }

@@ -109,45 +109,63 @@ Each widget reads one part of the JSON payload Claude Code sends on stdin, and e
 one is choosable by name. A widget with no data removes itself, and a row left with
 nothing on it is skipped.
 
-Every item can take a **color** (see [Styles](#styles)). Some also take a **variant**
-(a different way to show the same data). The one string after the name is read as a
-color if it is a known color word, otherwise as a variant, and the object form sets
-either or both:
+Each widget has a **data type**, and the type decides how it can be drawn: any
+percentage can be a bar, a number, or a gauge; any duration can be short or a clock.
+You choose a drawing (a **presentation**) with the item's variant, and set color the
+same way:
 
 ```jsonc
 "branch"                                  // default
 ["model", "cyan"]                         // color
-["cwd", "basename"]                       // variant
-["context", { "variant": "bar", "bar": "fine", "color": "yellow" }]
+["session", "bar"]                        // a percent drawn as a bar
+["context", { "variant": "gauge", "color": "yellow" }]
 ```
 
-| Widget     | Example                             | Displays                   | Variants                                                   |
-| ---------- | ----------------------------------- | -------------------------- | ---------------------------------------------------------- |
-| `branch`   | `⎇ main`                            | git branch                 |                                                            |
-| `model`    | `Opus 4.8`                          | model name                 |                                                            |
-| `context`  | `44% ████░░░░░░ (440k/1.0M) · high` | Model context              | `full`, `bar`, `pct`, `tokens` + [bar styles](#bar-styles) |
-| `session`  | `session 61% (↻2h11m)`              | Session usage and reset    |                                                            |
-| `weekly`   | `All 74%`                           | Weekly usage               |                                                            |
-| `cost`     | `$2.69`                             | session cost in USD        |                                                            |
-| `duration` | `37m`                               | wall-clock this session    |                                                            |
-| `lines`    | `+156 -23`                          | lines added and removed    |                                                            |
-| `pr`       | `PR #702`                           | open PR number             |                                                            |
-| `review`   | `pending`                           | PR review state            |                                                            |
-| `worktree` | `⌂ hotfix`                          | linked worktree            |                                                            |
-| `cwd`      | `~/Development/dashline`            | working directory          | `full`, `basename`                                         |
-| `repo`     | `dashline`                          | repository name            | `full` (owner/name)                                        |
-| `effort`   | `high`                              | reasoning effort           |                                                            |
-| `name`     | `celestial-vega`                    | session name               |                                                            |
-| `output`   | `/default`                          | output style               |                                                            |
-| `version`  | `v2.1.90`                           | Claude Code version        |                                                            |
-| `fast`     | `fast`                              | shown when fast mode is on |                                                            |
-| `thinking` | `thinking`                          | shown when thinking is on  |                                                            |
-| `vim`      | `NORMAL`                            | vim mode                   |                                                            |
-| `agent`    | `security-reviewer`                 | active subagent            |                                                            |
+| Widget | Example | Displays | Type |
+|---|---|---|---|
+| `branch` | `⎇ main` | git branch | label |
+| `model` | `Opus 4.8` | model name | label |
+| `context` | `44% ████░░░░░░ (440k/1.0M) · high` | model context | percent |
+| `session` | `session 61% (↻2h11m)` | session usage and reset | percent |
+| `weekly` | `All 74%` | weekly usage | percent |
+| `cost` | `$2.69` | session cost | money |
+| `duration` | `37m` | wall-clock this session | duration |
+| `lines` | `+156 -23` | lines added and removed | delta |
+| `pr` | `PR #702` | open PR number | label |
+| `review` | `pending` | PR review state | label |
+| `worktree` | `⌂ hotfix` | linked worktree | label |
+| `cwd` | `~/Development/dashline` | working directory | label |
+| `repo` | `dashline` | repository name | label |
+| `effort` | `high` | reasoning effort | label |
+| `name` | `celestial-vega` | session name | label |
+| `output` | `/default` | output style | label |
+| `version` | `v2.1.90` | Claude Code version | label |
+| `fast` | `fast` | fast mode | flag |
+| `thinking` | `thinking` | extended thinking | flag |
+| `vim` | `NORMAL` | vim mode | label |
+| `agent` | `security-reviewer` | active subagent | label |
 
-`context`, `session`, and `weekly` color themselves by fill (green to red). The usage
-pair appears on Pro and Max accounts once the payload starts carrying rate limits.
-Anything not in this list is treated as a shell command (see [Examples](#examples)).
+`context`, `session`, and `weekly` color themselves by fill (green to red); the usage
+pair appears on Pro and Max once the payload carries rate limits. Anything not in this
+list runs as a shell command (see [Examples](#examples)).
+
+## Presentations
+
+A type decides how its widgets can be drawn, so a drawing works by type, not by widget:
+`["session", "bar"]` and `["cost", "cents"]` both do what they say. Set it with the
+item's variant. The first presentation in each row is the default.
+
+| Type | Presentations |
+|---|---|
+| `percent` | `pct` (`44%`), `bar` (`████░░░░░░`), `gauge` (`▕████░░▏`), `ratio`, `tokens` (`(440k/1.0M)`), plus [bar styles](#bar-styles) |
+| `duration` | `short` (`37m`), `long` (`0h37m`), `clock` (`0:37:00`) |
+| `money` | `usd` (`$2.69`), `cents` (`269c`), `round` (`$3`) |
+| `delta` | `pair` (`+156 -23`), `sum` (`+133`), `added` (`+156`) |
+| `label` | `text`, `basename`, `upper`, `lower`, `truncate:N` |
+| `flag` | `on` (hidden when off), `onoff` (`fast:off`) |
+
+For `percent`, the default is the fuller line (number, bar, tokens, and countdown as
+each is available), which is why `context` and `session` look richer than a bare `bar`.
 
 ## Styles
 
@@ -161,11 +179,12 @@ those alone unless you want a fixed color.
 
 ### Bar styles
 
-The `context` bar is drawn with blocks by default. Pick another with a `bar` option:
+Any `percent` bar (context, session, weekly) is drawn with blocks by default. Pick
+another with a `bar` option:
 
 ```jsonc
 ["context", { "bar": "fine" }]
-["context", { "variant": "bar", "bar": "line" }]
+["session", { "variant": "bar", "bar": "line" }]
 ```
 
 | `bar`              | 44% of 10    |                                     |

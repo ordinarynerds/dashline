@@ -2,9 +2,9 @@ import type { DashlineConfig, Item, LineSpec } from './config.ts'
 import type { Ctx, WidgetOpts } from './widgets/types.ts'
 import { registry } from './widgets/registry.ts'
 import { runCommand } from './widgets/command.ts'
+import { present } from './present/index.ts'
 import { compose } from './layout.ts'
 import { paint, isStyle } from './style.ts'
-import { strip } from './util/width.ts'
 
 export function render(config: DashlineConfig, ctx: Ctx, columns: number): string[] {
   const sep = ` ${paint(config.separator, 'dim')} `
@@ -41,8 +41,10 @@ function renderItem(item: Item, ctx: Ctx): string | null {
     typeof raw === 'string' ? (isStyle(raw) ? { color: raw } : { variant: raw }) : (raw ?? {})
 
   const widget = registry[id]
-  const out = widget ? widget.render(ctx, opts) : runCommand(id, ctx)
-  if (out == null || out === '') return null
+  if (!widget) return runCommand(id, ctx)
 
-  return opts.color ? paint(strip(out), opts.color) : out
+  const datum = widget.data(ctx, opts)
+  if (!datum) return null
+  const out = present(datum, opts, ctx)
+  return out == null || out === '' ? null : out
 }

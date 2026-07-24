@@ -106,3 +106,36 @@ test('flag widgets appear only when their flag is on', () => {
   assert.deepEqual(run([['fast', 'thinking']], ctx({})), [])
   assert.deepEqual(run([['fast']], ctx({ fast_mode: true })), ['fast'])
 })
+
+// The presentation set attaches to the data type, so a variant works on any widget
+// of that type, not just the one it was first written for.
+test('percent presentations work on session and weekly, not just context', () => {
+  assert.deepEqual(run([[['session', 'bar']]], ctx(full)), ['██████░░░░'])
+  assert.deepEqual(run([[['weekly', 'pct']]], ctx(full)), ['74%'])
+  assert.deepEqual(run([[['session', 'gauge']]], ctx(full)), ['▕██████░░░░▏'])
+})
+
+test('duration presentations: short and clock', () => {
+  const p: Payload = { cost: { total_duration_ms: 2_220_000 } }
+  assert.deepEqual(run([['duration']], ctx(p)), ['37m'])
+  assert.deepEqual(run([[['duration', 'clock']]], ctx(p)), ['0:37:00'])
+})
+
+test('money presentation: cents', () => {
+  assert.deepEqual(run([[['cost', 'cents']]], ctx(full)), ['269c'])
+})
+
+test('delta presentation: sum', () => {
+  const p: Payload = { cost: { total_lines_added: 156, total_lines_removed: 23 } }
+  assert.deepEqual(run([[['lines', 'sum']]], ctx(p)), ['+133'])
+})
+
+test('label presentations: basename and truncate', () => {
+  const p: Payload = { workspace: { current_dir: '/Users/me/Development/dashline' } }
+  assert.deepEqual(run([[['cwd', 'basename']]], ctx(p)), ['dashline'])
+  assert.deepEqual(run([[['cwd', 'truncate:6']]], ctx(p)), ['/User…'])
+})
+
+test('flag presentation: onoff shows even when off', () => {
+  assert.deepEqual(run([[['fast', 'onoff']]], ctx({})), ['fast:off'])
+})

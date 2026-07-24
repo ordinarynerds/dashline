@@ -14,197 +14,100 @@ import { readFileSync } from "node:fs";
 import { homedir as homedir2 } from "node:os";
 import { join } from "node:path";
 
-// src/style.ts
-var CODES = {
-  reset: "0",
-  bold: "1",
-  dim: "2",
-  red: "1;31",
-  green: "32",
-  yellow: "33",
-  blue: "34",
-  magenta: "35",
-  cyan: "36",
-  gray: "90"
-};
-var RESET = "\x1B[0m";
-function paint(text, term) {
-  if (!term || !text) return text;
-  const codes = term.split(/\s+/).map((word) => CODES[word]).filter(Boolean);
-  if (codes.length === 0) return text;
-  return `\x1B[${codes.join(";")}m${text}${RESET}`;
-}
-function isStyle(term) {
-  return term.split(/\s+/).every((word) => word in CODES);
-}
-
 // src/widgets/branch.ts
 var branch = {
-  render({ git }) {
+  data({ git }) {
     if (!git.branch) return null;
-    return `${paint("\u2387", "dim")} ${paint(git.branch, "cyan")}`;
+    return { kind: "label", text: git.branch, icon: "\u2387", color: "cyan" };
   }
 };
 
 // src/widgets/model.ts
 var model = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const name2 = payload2.model?.display_name?.replace(/\s*\([^)]*\)\s*$/, "");
     if (!name2) return null;
-    return paint(name2, "bold");
+    return { kind: "label", text: name2, color: "bold" };
   }
 };
-
-// src/util/format.ts
-function human(n) {
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${Math.round(n / 1e3)}k`;
-  return `${Math.round(n)}`;
-}
-function duration(ms) {
-  const s = Math.floor(ms / 1e3);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor(s % 3600 / 60);
-  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
-}
-function countdown(resetsAt, now) {
-  const d = Math.max(0, resetsAt - now);
-  const days = Math.floor(d / 86400);
-  const hrs = Math.floor(d % 86400 / 3600);
-  const mins = Math.floor(d % 3600 / 60);
-  if (days > 0) return `${days}d${hrs}h`;
-  if (hrs > 0) return `${hrs}h${String(mins).padStart(2, "0")}m`;
-  return `${mins}m`;
-}
-
-// src/util/bar.ts
-var SETS = {
-  blocks: { full: "\u2588", empty: "\u2591" },
-  shade: { full: "\u2593", empty: "\u2591" },
-  line: { full: "\u2501", empty: "\u2500" },
-  ascii: { full: "#", empty: "-", wrap: ["[", "]"] }
-};
-var EIGHTHS = ["", "\u258F", "\u258E", "\u258D", "\u258C", "\u258B", "\u258A", "\u2589"];
-function bar(pct, width, style = "blocks") {
-  const ratio = Math.min(100, Math.max(0, pct)) / 100;
-  if (style === "fine") return fine(ratio, width);
-  const set = SETS[style] ?? SETS.blocks;
-  const inner = set.wrap ? Math.max(0, width - 2) : width;
-  const fill = Math.round(ratio * inner);
-  const body = set.full.repeat(fill) + set.empty.repeat(inner - fill);
-  return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
-}
-function fine(ratio, width) {
-  const cells = ratio * width;
-  const full = Math.floor(cells);
-  const part = Math.round((cells - full) * 8);
-  let out = "\u2588".repeat(full);
-  let empty = width - full;
-  if (part > 0 && full < width) {
-    out += EIGHTHS[part];
-    empty -= 1;
-  }
-  return out + "\u2591".repeat(Math.max(0, empty));
-}
-var barStyles = [...Object.keys(SETS), "fine"];
 
 // src/widgets/context.ts
-var WIDTH = 10;
 var context = {
-  render(ctx2, opts) {
+  data(ctx2) {
     const c = ctx2.payload.context_window;
-    const pct = percent(ctx2);
-    if (pct === null) return paint("--", "dim");
-    const color = pct >= ctx2.thresholds.compact ? "red" : pct >= ctx2.thresholds.warn ? "yellow" : "green";
-    const variant = opts.variant ?? "full";
-    const number = paint(`${pct}%`, `bold ${color}`);
-    const bar2 = paint(bar(pct, WIDTH, opts.bar), color);
-    const tokens = tokenLabel(c);
-    if (variant === "pct") return number;
-    if (variant === "bar") return bar2;
-    if (variant === "tokens") return tokens ?? number;
-    let hint = "";
-    if (pct >= ctx2.thresholds.compact) hint = ` ${paint("\u2192 /compact", "bold red")} ${paint("[next goal/task]", "dim")}`;
-    else if (pct >= ctx2.thresholds.warn) hint = ` ${paint("\xB7 high", "yellow")}`;
-    return `${number} ${bar2}${tokens ? ` ${tokens}` : ""}${hint}`;
+    const value = percent(ctx2);
+    if (value === null) return { kind: "label", text: "--", color: "dim" };
+    const used = c?.total_input_tokens ?? c?.current_usage?.input_tokens;
+    const size = c?.context_window_size;
+    return {
+      kind: "percent",
+      value,
+      scale: "context",
+      defaultBar: true,
+      hint: true,
+      tokens: used != null && size != null ? { used, size } : void 0
+    };
   }
 };
-function tokenLabel(c) {
-  const used = c?.total_input_tokens ?? c?.current_usage?.input_tokens;
-  const size = c?.context_window_size;
-  if (used == null || size == null) return null;
-  return paint(`(${human(used)}/${human(size)})`, "dim");
-}
 function percent(ctx2) {
   const c = ctx2.payload.context_window;
   if (!c) return null;
-  if (typeof c.used_percentage === "number") return Math.round(c.used_percentage);
+  if (typeof c.used_percentage === "number") return c.used_percentage;
   const used = c.total_input_tokens ?? c.current_usage?.input_tokens;
-  if (used != null && c.context_window_size) return Math.round(used / c.context_window_size * 100);
+  if (used != null && c.context_window_size) return used / c.context_window_size * 100;
   return null;
 }
 
 // src/widgets/usage.ts
-function usageColor(pct, { usageWarn, usageCrit }) {
-  if (pct >= usageCrit) return "red";
-  if (pct >= usageWarn) return "yellow";
-  return "green";
-}
 var session = {
-  render(ctx2) {
-    const w = ctx2.payload.rate_limits?.five_hour;
+  data({ payload: payload2 }) {
+    const w = payload2.rate_limits?.five_hour;
     if (w?.used_percentage == null) return null;
-    const pct = Math.round(w.used_percentage);
-    let out = `${paint("session", "dim")} ${paint(`${pct}%`, usageColor(pct, ctx2.thresholds))}`;
-    if (w.resets_at) out += ` ${paint(`(\u21BB${countdown(w.resets_at, ctx2.now)})`, "dim")}`;
-    return out;
+    return { kind: "percent", value: w.used_percentage, scale: "usage", label: "session", reset: w.resets_at };
   }
 };
 var weekly = {
-  render(ctx2) {
-    const w = ctx2.payload.rate_limits?.seven_day;
+  data({ payload: payload2 }) {
+    const w = payload2.rate_limits?.seven_day;
     if (w?.used_percentage == null) return null;
-    const pct = Math.round(w.used_percentage);
-    return `${paint("All", "dim")} ${paint(`${pct}%`, usageColor(pct, ctx2.thresholds))}`;
+    return { kind: "percent", value: w.used_percentage, scale: "usage", label: "All" };
   }
 };
 
 // src/widgets/cost.ts
 var cost = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const usd = payload2.cost?.total_cost_usd;
     if (usd == null) return null;
-    return paint(`$${usd.toFixed(2)}`, "green");
+    return { kind: "money", usd };
   }
 };
 
 // src/widgets/duration.ts
-var duration2 = {
-  render({ payload: payload2 }) {
+var duration = {
+  data({ payload: payload2 }) {
     const ms = payload2.cost?.total_duration_ms;
     if (ms == null) return null;
-    return paint(duration(ms), "dim");
+    return { kind: "duration", ms };
   }
 };
 
 // src/widgets/lines.ts
 var lines = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const added = payload2.cost?.total_lines_added;
     const removed = payload2.cost?.total_lines_removed;
     if (added == null && removed == null) return null;
-    return `${paint(`+${added ?? 0}`, "green")} ${paint(`-${removed ?? 0}`, "red")}`;
+    return { kind: "delta", added: added ?? 0, removed: removed ?? 0 };
   }
 };
 
 // src/widgets/pr.ts
 var pr = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const n = payload2.pr?.number;
     if (n == null) return null;
-    return paint(`PR #${n}`, "magenta");
+    return { kind: "label", text: `PR #${n}`, color: "magenta" };
   }
 };
 
@@ -216,103 +119,101 @@ var COLORS = {
   draft: "dim"
 };
 var review = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const state = payload2.pr?.review_state;
     if (!state) return null;
-    return paint(state.replace(/_/g, " "), COLORS[state] ?? "dim");
+    return { kind: "label", text: state.replace(/_/g, " "), color: COLORS[state] ?? "dim" };
   }
 };
 
 // src/widgets/worktree.ts
 var worktree = {
-  render({ git }) {
+  data({ git }) {
     if (!git.worktree) return null;
-    return `${paint("\u2302", "yellow")} ${paint(git.worktree, "yellow")}`;
+    return { kind: "label", text: git.worktree, icon: "\u2302", iconColor: "yellow", color: "yellow" };
   }
 };
 
 // src/widgets/cwd.ts
 import { homedir } from "node:os";
-import { basename } from "node:path";
 var cwd = {
-  render({ payload: payload2 }, opts) {
+  data({ payload: payload2 }) {
     const dir2 = payload2.workspace?.current_dir ?? payload2.cwd;
     if (!dir2) return null;
-    if (opts.variant === "basename") return paint(basename(dir2), "dim");
     const home = homedir();
-    const shown = home && dir2.startsWith(home) ? `~${dir2.slice(home.length)}` : dir2;
-    return paint(shown, "dim");
+    const text = home && dir2.startsWith(home) ? `~${dir2.slice(home.length)}` : dir2;
+    return { kind: "label", text, color: "dim" };
   }
 };
 
 // src/widgets/repo.ts
 var repo = {
-  render({ payload: payload2 }, opts) {
+  data({ payload: payload2 }, opts) {
     const r = payload2.workspace?.repo;
     if (!r?.name) return null;
     const text = opts.variant === "full" && r.owner ? `${r.owner}/${r.name}` : r.name;
-    return paint(text, "dim");
+    return { kind: "label", text, color: "dim" };
   }
 };
 
 // src/widgets/effort.ts
 var effort = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const level = payload2.effort?.level;
     if (!level) return null;
-    return paint(level, "dim");
+    return { kind: "label", text: level, color: "dim" };
   }
 };
 
 // src/widgets/name.ts
 var name = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const n = payload2.session_name;
     if (!n) return null;
-    return paint(n, "dim");
+    return { kind: "label", text: n, color: "dim" };
   }
 };
 
 // src/widgets/output.ts
 var output = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const s = payload2.output_style?.name;
     if (!s) return null;
-    return paint(`/${s}`, "dim");
+    return { kind: "label", text: `/${s}`, color: "dim" };
   }
 };
 
 // src/widgets/version.ts
 var version = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     if (!payload2.version) return null;
-    return paint(`v${payload2.version}`, "dim");
+    return { kind: "label", text: `v${payload2.version}`, color: "dim" };
   }
 };
 
 // src/widgets/flags.ts
 var fast = {
-  render({ payload: payload2 }) {
-    return payload2.fast_mode ? paint("fast", "yellow") : null;
+  data({ payload: payload2 }) {
+    return { kind: "flag", on: Boolean(payload2.fast_mode), label: "fast" };
   }
 };
 var thinking = {
-  render({ payload: payload2 }) {
-    return payload2.thinking?.enabled ? paint("thinking", "dim") : null;
+  data({ payload: payload2 }) {
+    return { kind: "flag", on: Boolean(payload2.thinking?.enabled), label: "thinking" };
   }
 };
 var vim = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const mode = payload2.vim?.mode;
     if (!mode) return null;
-    return paint(mode, "dim");
+    return { kind: "label", text: mode, color: "dim" };
   }
 };
 var agent = {
-  render({ payload: payload2 }) {
+  data({ payload: payload2 }) {
     const n = payload2.agent?.name;
     if (!n) return null;
-    return paint(n, "magenta");
+    return { kind: "label", text: n, color: "magenta" };
   }
 };
 
@@ -324,7 +225,7 @@ var registry = {
   session,
   weekly,
   cost,
-  duration: duration2,
+  duration,
   lines,
   pr,
   review,
@@ -400,7 +301,7 @@ function read(file) {
 
 // src/util/git.ts
 import { execFileSync } from "node:child_process";
-import { basename as basename2 } from "node:path";
+import { basename } from "node:path";
 function readGit(dir2, worktreeHint) {
   if (!dir2) return {};
   const out = run(dir2, ["rev-parse", "--abbrev-ref", "HEAD", "--absolute-git-dir"]);
@@ -413,7 +314,7 @@ function readGit(dir2, worktreeHint) {
   let worktree2 = worktreeHint;
   if (!worktree2 && gitDir?.includes("/worktrees/")) {
     const top = run(dir2, ["rev-parse", "--show-toplevel"]);
-    if (top) worktree2 = basename2(top);
+    if (top) worktree2 = basename(top);
   }
   return { branch: branch2 || void 0, worktree: worktree2 };
 }
@@ -453,13 +354,193 @@ function exported(ctx2) {
   };
 }
 
+// src/style.ts
+var CODES = {
+  reset: "0",
+  bold: "1",
+  dim: "2",
+  red: "1;31",
+  green: "32",
+  yellow: "33",
+  blue: "34",
+  magenta: "35",
+  cyan: "36",
+  gray: "90"
+};
+var RESET = "\x1B[0m";
+function paint(text, term) {
+  if (!term || !text) return text;
+  const codes = term.split(/\s+/).map((word) => CODES[word]).filter(Boolean);
+  if (codes.length === 0) return text;
+  return `\x1B[${codes.join(";")}m${text}${RESET}`;
+}
+function isStyle(term) {
+  return term.split(/\s+/).every((word) => word in CODES);
+}
+
+// src/util/bar.ts
+var SETS = {
+  blocks: { full: "\u2588", empty: "\u2591" },
+  shade: { full: "\u2593", empty: "\u2591" },
+  line: { full: "\u2501", empty: "\u2500" },
+  ascii: { full: "#", empty: "-", wrap: ["[", "]"] }
+};
+var EIGHTHS = ["", "\u258F", "\u258E", "\u258D", "\u258C", "\u258B", "\u258A", "\u2589"];
+function bar(pct, width, style = "blocks") {
+  const ratio = Math.min(100, Math.max(0, pct)) / 100;
+  if (style === "fine") return fine(ratio, width);
+  const set = SETS[style] ?? SETS.blocks;
+  const inner = set.wrap ? Math.max(0, width - 2) : width;
+  const fill = Math.round(ratio * inner);
+  const body = set.full.repeat(fill) + set.empty.repeat(inner - fill);
+  return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
+}
+function fine(ratio, width) {
+  const cells = ratio * width;
+  const full = Math.floor(cells);
+  const part = Math.round((cells - full) * 8);
+  let out = "\u2588".repeat(full);
+  let empty = width - full;
+  if (part > 0 && full < width) {
+    out += EIGHTHS[part];
+    empty -= 1;
+  }
+  return out + "\u2591".repeat(Math.max(0, empty));
+}
+var barStyles = [...Object.keys(SETS), "fine"];
+
+// src/util/format.ts
+function human(n) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)}k`;
+  return `${Math.round(n)}`;
+}
+function duration2(ms) {
+  const s = Math.floor(ms / 1e3);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor(s % 3600 / 60);
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+function countdown(resetsAt, now) {
+  const d = Math.max(0, resetsAt - now);
+  const days = Math.floor(d / 86400);
+  const hrs = Math.floor(d % 86400 / 3600);
+  const mins = Math.floor(d % 3600 / 60);
+  if (days > 0) return `${days}d${hrs}h`;
+  if (hrs > 0) return `${hrs}h${String(mins).padStart(2, "0")}m`;
+  return `${mins}m`;
+}
+
+// src/present/percent.ts
+var WIDTH = 10;
+function percent2(d, opts, ctx2) {
+  const color = opts.color ?? fillColor(d, ctx2);
+  const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
+  const meter = paint(bar(d.value, WIDTH, opts.bar), color);
+  switch (opts.variant) {
+    case "pct":
+      return number;
+    case "bar":
+      return meter;
+    case "gauge":
+      return paint(`\u2595${bar(d.value, WIDTH, opts.bar)}\u258F`, color);
+    case "ratio":
+      return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number;
+    case "tokens":
+      return d.tokens ? paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim") : number;
+  }
+  const parts = [];
+  if (d.label) parts.push(paint(d.label, "dim"));
+  parts.push(number);
+  if (d.defaultBar) parts.push(meter);
+  if (d.tokens) parts.push(paint(`(${human(d.tokens.used)}/${human(d.tokens.size)})`, "dim"));
+  if (d.hint && d.value >= ctx2.thresholds.compact) {
+    parts.push(`${paint("\u2192 /compact", "bold red")} ${paint("[next goal/task]", "dim")}`);
+  } else if (d.hint && d.value >= ctx2.thresholds.warn) {
+    parts.push(paint("\xB7 high", "yellow"));
+  }
+  if (d.reset) parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
+  return parts.join(" ");
+}
+function fillColor(d, ctx2) {
+  const t = ctx2.thresholds;
+  if (d.scale === "context") return d.value >= t.compact ? "red" : d.value >= t.warn ? "yellow" : "green";
+  return d.value >= t.usageCrit ? "red" : d.value >= t.usageWarn ? "yellow" : "green";
+}
+
+// src/present/scalars.ts
+function duration3(d, opts) {
+  const color = opts.color ?? "dim";
+  const s = Math.floor(d.ms / 1e3);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor(s % 3600 / 60);
+  if (opts.variant === "long") return paint(`${h}h${String(m).padStart(2, "0")}m`, color);
+  if (opts.variant === "clock") {
+    return paint(`${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`, color);
+  }
+  return paint(duration2(d.ms), color);
+}
+function money(d, opts) {
+  const color = opts.color ?? "green";
+  if (opts.variant === "cents") return paint(`${Math.round(d.usd * 100)}c`, color);
+  if (opts.variant === "round") return paint(`$${Math.round(d.usd)}`, color);
+  return paint(`$${d.usd.toFixed(2)}`, color);
+}
+function delta(d, opts) {
+  if (opts.variant === "added") return paint(`+${d.added}`, opts.color ?? "green");
+  if (opts.variant === "sum") {
+    const net = d.added - d.removed;
+    return paint(`${net >= 0 ? "+" : ""}${net}`, opts.color ?? (net >= 0 ? "green" : "red"));
+  }
+  if (opts.color) return paint(`+${d.added} -${d.removed}`, opts.color);
+  return `${paint(`+${d.added}`, "green")} ${paint(`-${d.removed}`, "red")}`;
+}
+function flag(d, opts) {
+  if (opts.variant === "onoff") return paint(`${d.label}:${d.on ? "on" : "off"}`, opts.color ?? (d.on ? "green" : "dim"));
+  return d.on ? paint(d.label, opts.color ?? "yellow") : null;
+}
+
+// src/present/label.ts
+import { basename as basename2 } from "node:path";
+function label(d, opts) {
+  let text = d.text;
+  const v = opts.variant;
+  if (v === "basename") text = basename2(text);
+  else if (v === "upper") text = text.toUpperCase();
+  else if (v === "lower") text = text.toLowerCase();
+  else if (v?.startsWith("truncate:")) {
+    const n = Number(v.slice("truncate:".length));
+    if (n > 0 && text.length > n) text = `${text.slice(0, n - 1)}\u2026`;
+  }
+  const color = opts.color ?? d.color;
+  const body = color ? paint(text, color) : text;
+  return d.icon ? `${paint(d.icon, d.iconColor ?? "dim")} ${body}` : body;
+}
+
+// src/present/index.ts
+function present(datum, opts, ctx2) {
+  switch (datum.kind) {
+    case "percent":
+      return percent2(datum, opts, ctx2);
+    case "duration":
+      return duration3(datum, opts);
+    case "money":
+      return money(datum, opts);
+    case "delta":
+      return delta(datum, opts);
+    case "label":
+      return label(datum, opts);
+    case "flag":
+      return flag(datum, opts);
+  }
+}
+
 // src/util/width.ts
 var ANSI = /\x1b\[[0-9;]*m/g;
 function visibleWidth(text) {
   return [...text.replace(ANSI, "")].length;
-}
-function strip(text) {
-  return text.replace(ANSI, "");
 }
 
 // src/layout.ts
@@ -515,9 +596,11 @@ function renderItem(item, ctx2) {
   const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
   const opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
   const widget = registry[id];
-  const out = widget ? widget.render(ctx2, opts) : runCommand(id, ctx2);
-  if (out == null || out === "") return null;
-  return opts.color ? paint(strip(out), opts.color) : out;
+  if (!widget) return runCommand(id, ctx2);
+  const datum = widget.data(ctx2, opts);
+  if (!datum) return null;
+  const out = present(datum, opts, ctx2);
+  return out == null || out === "" ? null : out;
 }
 
 // src/index.ts

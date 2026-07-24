@@ -1,9 +1,8 @@
 import type { Widget } from './types.ts'
-import { paint } from '../style.ts'
 
 export const version: Widget = {
-  render({ payload }) {
+  data({ payload }) {
     if (!payload.version) return null
-    return paint(`v${payload.version}`, 'dim')
+    return { kind: 'label', text: `v${payload.version}`, color: 'dim' }
   },
 }

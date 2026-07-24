@@ -1,5 +1,6 @@
 import type { Payload } from '../payload.ts'
 import type { GitInfo } from '../util/git.ts'
+import type { Datum } from '../datum.ts'
 
 export interface Thresholds {
   warn: number
@@ -22,5 +23,5 @@ export interface WidgetOpts {
 }
 
 export interface Widget {
-  render(ctx: Ctx, opts: WidgetOpts): string | null
+  data(ctx: Ctx, opts: WidgetOpts): Datum | null
 }
