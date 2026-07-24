@@ -238,21 +238,44 @@ export const SCENARIOS: Scenario[] = [
   { name: 'Near the limit', context: 96, session: 91, weekly: 88, branch: 'hotfix', cost: '$8.26', duration: '2h04m', effort: 'high', reset: '0h41m' },
 ]
 
-// Percent tone by load, so colors shift green → yellow → red as a scenario fills up.
-function toneFor(value: number): ColorName {
-  if (value >= 80) return 'red'
-  if (value >= 50) return 'yellow'
+// The warning/critical cut-offs that color percentages, mirroring dashline's built-in defaults
+// when a threshold is left at 0.
+export interface PctThresholds {
+  contextWarn: number
+  contextCrit: number
+  usageWarn: number
+  usageCrit: number
+}
+
+const DEFAULT_THRESHOLDS: PctThresholds = { contextWarn: 40, contextCrit: 50, usageWarn: 70, usageCrit: 90 }
+
+export function resolveThresholds(s: Settings): PctThresholds {
+  return {
+    contextWarn: s.contextWarningAt || DEFAULT_THRESHOLDS.contextWarn,
+    contextCrit: s.contextCriticalAt || DEFAULT_THRESHOLDS.contextCrit,
+    usageWarn: s.usageWarningAt || DEFAULT_THRESHOLDS.usageWarn,
+    usageCrit: s.usageCriticalAt || DEFAULT_THRESHOLDS.usageCrit,
+  }
+}
+
+// Percent tone by load against the active thresholds, so colors shift green → yellow → red as a
+// scenario fills up and respond to the threshold sliders.
+function toneFor(value: number, kind: 'context' | 'usage', th: PctThresholds): ColorName {
+  const warn = kind === 'context' ? th.contextWarn : th.usageWarn
+  const crit = kind === 'context' ? th.contextCrit : th.usageCrit
+  if (value >= crit) return 'red'
+  if (value >= warn) return 'yellow'
   return 'green'
 }
 
 // The live percent state for a widget: the static sample, or the scenario's values recolored
 // and re-tokenized so the numbers stay believable as they move.
-function resolvePercent(widget: string, scenario?: Scenario): PercentState | null {
+function resolvePercent(widget: string, scenario: Scenario | undefined, th: PctThresholds): PercentState | null {
   const base = PERCENT[widget]
   if (!base) return null
   if (!scenario) return base
   const value = widget === 'context' ? scenario.context : widget === 'session' ? scenario.session : scenario.weekly
-  const tone = toneFor(value)
+  const tone = toneFor(value, widget === 'context' ? 'context' : 'usage', th)
   if (widget === 'context') {
     const usedK = Math.max(1, Math.round((value / 100) * 1000))
     return { value, tone, ratio: `${usedK}k/1.0M`, tokens: `${usedK}k`, detail: [[` (${usedK}k/1.0M)`, 'dim'], [` · ${scenario.effort ?? 'high'}`, tone]] }
@@ -265,9 +288,9 @@ function resolvePercent(widget: string, scenario?: Scenario): PercentState | nul
 
 // The default (no-variant) look of a live widget, rebuilt from a scenario so playback moves the
 // numbers, bars, and colors even when the user hasn't chosen an explicit variant.
-function scenarioParts(widget: string, scenario?: Scenario): Part[] | null {
+function scenarioParts(widget: string, scenario: Scenario | undefined, th: PctThresholds): Part[] | null {
   if (!scenario) return null
-  const p = resolvePercent(widget, scenario)
+  const p = resolvePercent(widget, scenario, th)
   if (p) {
     if (widget === 'context') return [[`${p.value}%`, p.tone], [` ${drawBar(p.value, 'blocks')}`, p.tone], ...p.detail]
     return [[p.prefix ?? '', 'dim'], [`${p.value}%`, p.tone], ...p.detail]
@@ -286,8 +309,8 @@ function scenarioParts(widget: string, scenario?: Scenario): Part[] | null {
   }
 }
 
-function percentParts(item: Item, scenario?: Scenario): Part[] | null {
-  const s = resolvePercent(item.widget, scenario)
+function percentParts(item: Item, scenario: Scenario | undefined, th: PctThresholds): Part[] | null {
+  const s = resolvePercent(item.widget, scenario, th)
   if (!s || (!item.variant && !item.bar)) return null
   const variant: Variant = item.variant ?? 'bar'
   const pct = `${s.value}%`
@@ -311,8 +334,8 @@ function percentParts(item: Item, scenario?: Scenario): Part[] | null {
 
 // The colored parts a placed item renders, applying its variant, bar, label, and trend. An
 // optional scenario overrides the live values so the terminal preview can play through states.
-export function widgetParts(item: Item, scenario?: Scenario): Part[] {
-  const base = percentParts(item, scenario) ?? scenarioParts(item.widget, scenario) ?? WIDGETS[item.widget]?.parts ?? []
+export function widgetParts(item: Item, scenario?: Scenario, th: PctThresholds = DEFAULT_THRESHOLDS): Part[] {
+  const base = percentParts(item, scenario, th) ?? scenarioParts(item.widget, scenario, th) ?? WIDGETS[item.widget]?.parts ?? []
   let parts: Part[] = base.map((p) => [...p] as Part)
   if (item.label) parts = [[`${item.label} `, 'dim'], ...parts]
   if (item.trend) parts = [...parts, [' ↑', 'green']]

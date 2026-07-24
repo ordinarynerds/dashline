@@ -1,4 +1,4 @@
-import { POWERLINE_BG, SCENARIOS, colorOf, type Item, type Line, type Scenario, type Settings } from '@/lib/dashline'
+import { POWERLINE_BG, SCENARIOS, colorOf, resolveThresholds, type Item, type Line, type Scenario, type Settings } from '@/lib/dashline'
 import { ClaudePrompt } from '@/components/brainless/claude/claude-prompt'
 import { WidgetTokens } from './widget-tokens'
 import { TerminalScrollback } from './terminal-scrollback'
@@ -10,7 +10,7 @@ import { usePreviewStore } from '@/hooks/use-preview-store'
 const FADE = 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.12) 55%, #000 100%)'
 
 function Token({ item, settings, scenario }: { item: Item; settings: Settings; scenario: Scenario }) {
-  return <WidgetTokens id={item.widget} item={item} theme={settings.theme} icons={settings.icons} scenario={scenario} />
+  return <WidgetTokens id={item.widget} item={item} theme={settings.theme} icons={settings.icons} scenario={scenario} thresholds={resolveThresholds(settings)} />
 }
 
 function ZoneTokens({ items, settings, scenario }: { items: Item[]; settings: Settings; scenario: Scenario }) {
