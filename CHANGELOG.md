@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/ordinarynerds/dashline/compare/v0.8.0...v0.9.0) (2026-07-24)
+
+
+### Features
+
+* wave 2 visuals — themes, gradient bars, trend, reverse powerline, icons ([dbff49d](https://github.com/ordinarynerds/dashline/commit/dbff49d4c7676ce475a43c9063f66c5285c353e8))
+
+
+### Bug Fixes
+
+* bound untrusted numeric config and harden the render path ([9cb044f](https://github.com/ordinarynerds/dashline/commit/9cb044f709957077ee1f6c43a5311eaebab2133b))
+* give each session its own state file to remove the write race ([b0218dc](https://github.com/ordinarynerds/dashline/commit/b0218dc523ee57b0cc8f7747189ec2f5a2def1c5))
+
 ## [0.8.0](https://github.com/ordinarynerds/dashline/compare/v0.7.0...v0.8.0) (2026-07-24)
 
 
