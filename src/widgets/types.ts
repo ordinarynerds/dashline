@@ -1,5 +1,5 @@
 import type { Payload } from '../payload.ts'
-import type { GitInfo } from '../util/git.ts'
+import type { GitInfo, GitNeeds } from '../util/git.ts'
 import type { Datum } from '../datum.ts'
 import type { Sample } from '../state.ts'
 
@@ -42,4 +42,12 @@ export interface WidgetOpts {
 
 export interface Widget {
   data(ctx: Ctx, opts: WidgetOpts): Datum | null
+  // What this widget needs gathered before it can draw. Declared here rather than in a
+  // roster inside scan.ts, so registering a widget is the single act that also states its
+  // cost — a widget can't be added and then silently render empty for want of a probe.
+  needs?: Needs
+}
+
+export interface Needs extends GitNeeds {
+  history?: boolean
 }

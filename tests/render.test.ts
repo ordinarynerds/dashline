@@ -6,6 +6,7 @@ import { strip } from '../src/util/width.ts'
 import type { DashlineConfig, LineSpec } from '../src/config.ts'
 import type { Ctx } from '../src/widgets/types.ts'
 import type { Payload } from '../src/payload.ts'
+import type { GitInfo } from '../src/util/git.ts'
 
 const base: Omit<DashlineConfig, 'lines'> = {
   separator: '·',
@@ -246,4 +247,144 @@ test('control characters in a text item and the separator are neutralized', () =
   const out = render({ ...base, separator: `${ESC};`, lines: [[{ text: `a${ESC}]0;x${BEL}b` }, { text: 'c' }]] }, c, 120)
   assert.equal(strip(out[0]!), 'a]0;xb ; c')
   assert.ok(!strip(out[0]!).includes(ESC))
+})
+
+// --- git working-tree widgets -------------------------------------------------------
+
+function gitCtx(git: GitInfo): Ctx {
+  return {
+    payload: {},
+    git,
+    thresholds: { warning: 40, critical: 50, usageWarning: 70, usageCritical: 90 },
+    now: 1_000_000,
+  }
+}
+
+const messy: GitInfo = { staged: 2, unstaged: 3, untracked: 1, conflicts: 0, stash: 4, ahead: 2, behind: 3, sha: 'a1b2c3d' }
+const tidy: GitInfo = { staged: 0, unstaged: 0, untracked: 0, conflicts: 0, stash: 0 }
+
+test('dirty counts each part, and each part is its own variant', () => {
+  assert.deepEqual(run([['dirty']], gitCtx(messy)), ['+2 *3 ?1'])
+  assert.deepEqual(run([[['dirty', 'flags']]], gitCtx(messy)), ['+*?'])
+  assert.deepEqual(run([[['dirty', 'staged']]], gitCtx(messy)), ['+2'])
+  assert.deepEqual(run([[['dirty', 'unstaged']]], gitCtx(messy)), ['*3'])
+  assert.deepEqual(run([[['dirty', 'untracked']]], gitCtx(messy)), ['?1'])
+})
+
+test('dirty hides on a clean tree, and the clean variant hides on a dirty one', () => {
+  assert.deepEqual(run([['dirty']], gitCtx(tidy)), [])
+  assert.deepEqual(run([[['dirty', 'clean']]], gitCtx(tidy)), ['✓'])
+  assert.deepEqual(run([[['dirty', 'clean']]], gitCtx(messy)), [])
+  assert.deepEqual(run([[['dirty', 'staged']]], gitCtx(tidy)), [])
+})
+
+test('dirty hides entirely when status was never probed', () => {
+  assert.deepEqual(run([['dirty']], gitCtx({ branch: 'main' })), [])
+  assert.deepEqual(run([[['dirty', 'clean']]], gitCtx({ branch: 'main' })), [])
+})
+
+test('conflicts are counted and turn the whole reading red', () => {
+  assert.deepEqual(run([['dirty']], gitCtx({ ...tidy, conflicts: 2 })), ['!2'])
+  assert.match(render({ ...base, lines: [['dirty']] }, gitCtx({ ...tidy, conflicts: 2 }), 120)[0]!, /31m/)
+})
+
+test('sync reads ahead and behind, and hides when level', () => {
+  assert.deepEqual(run([['sync']], gitCtx(messy)), ['↑2↓3'])
+  assert.deepEqual(run([[['sync', 'ahead']]], gitCtx(messy)), ['↑2'])
+  assert.deepEqual(run([[['sync', 'behind']]], gitCtx(messy)), ['↓3'])
+  assert.deepEqual(run([['sync']], gitCtx({ ahead: 0, behind: 0 })), [])
+  assert.deepEqual(run([[['sync', 'synced']]], gitCtx({ ahead: 0, behind: 0 })), ['≡'])
+})
+
+test('sync hides when the branch has no upstream', () => {
+  assert.deepEqual(run([['sync']], gitCtx({ branch: 'solo' })), [])
+  assert.deepEqual(run([[['sync', 'synced']]], gitCtx({ branch: 'solo' })), [])
+})
+
+test('sha and stash', () => {
+  assert.deepEqual(run([['sha']], gitCtx(messy)), ['a1b2c3d'])
+  assert.deepEqual(run([['sha']], gitCtx({})), [])
+  assert.deepEqual(run([['stash']], gitCtx(messy)), ['⚑4'])
+  assert.deepEqual(run([['stash']], gitCtx(tidy)), [])
+})
+
+test('diff reuses the delta presentations and hides a clean tree', () => {
+  assert.deepEqual(run([['diff']], gitCtx({ added: 42, removed: 10 })), ['+42 -10'])
+  assert.deepEqual(run([[['diff', 'sum']]], gitCtx({ added: 42, removed: 10 })), ['+32'])
+  assert.deepEqual(run([[['diff', 'added']]], gitCtx({ added: 42, removed: 10 })), ['+42'])
+  assert.deepEqual(run([['diff']], gitCtx({ added: 0, removed: 0 })), [])
+  assert.deepEqual(run([['diff']], gitCtx({})), [])
+})
+
+// --- payload widgets added alongside the git batch -----------------------------------
+
+test('weekly now shows its reset countdown, which the payload always carried', () => {
+  // seven_day.resets_at was parsed and then dropped; session showed one and weekly did not.
+  assert.deepEqual(run([['weekly']], ctx(full)), ['All 74% (↻3d16h)'])
+  assert.deepEqual(run([[['weekly', { countdown: false }]]], ctx(full)), ['All 74%'])
+})
+
+test('weekly hides the countdown when the payload has no reset', () => {
+  const noReset = { rate_limits: { seven_day: { used_percentage: 74 } } }
+  assert.deepEqual(run([['weekly']], ctx(noReset)), ['All 74%'])
+})
+
+test('model trims the context parenthetical by default and keeps it under "full"', () => {
+  assert.deepEqual(run([['model']], ctx(full)), ['Opus 4.8'])
+  assert.deepEqual(run([[['model', 'full']]], ctx(full)), ['Opus 4.8 (1M context)'])
+  assert.deepEqual(run([[['model', 'id']]], ctx({ model: { id: 'claude-opus-5' } })), ['claude-opus-5'])
+  assert.deepEqual(run([[['model', 'id']]], ctx(full)), [])
+})
+
+test('name takes a standalone id variant', () => {
+  const p = { session_name: 'celestial-vega', session_id: 'abcdef1234567890' }
+  assert.deepEqual(run([['name']], ctx(p)), ['celestial-vega'])
+  assert.deepEqual(run([[['name', { id: true }]]], ctx(p)), ['celestial-vega-abcdef12'])
+  assert.deepEqual(run([[['name', 'id']]], ctx(p)), ['abcdef12'])
+  assert.deepEqual(run([[['name', 'id']]], ctx({ session_name: 'x' })), [])
+})
+
+test('repo reads the owner and host separately', () => {
+  const p = { workspace: { repo: { host: 'github.com', owner: 'ordinarynerds', name: 'dashline' } } }
+  assert.deepEqual(run([['repo']], ctx(p)), ['dashline'])
+  assert.deepEqual(run([[['repo', 'full']]], ctx(p)), ['ordinarynerds/dashline'])
+  assert.deepEqual(run([[['repo', 'owner']]], ctx(p)), ['ordinarynerds'])
+  assert.deepEqual(run([[['repo', 'host']]], ctx(p)), ['github.com'])
+  assert.deepEqual(run([[['repo', 'owner']]], ctx({ workspace: { repo: { name: 'solo' } } })), [])
+})
+
+test('context "left" shows headroom instead of fill', () => {
+  assert.deepEqual(run([[['context', 'left']]], ctx(full)), ['560k left'])
+})
+
+test('rate divides cost by duration and needs a minute of wall clock first', () => {
+  const hour = { cost: { total_cost_usd: 4.5, total_duration_ms: 3_600_000 } }
+  assert.deepEqual(run([['rate']], ctx(hour)), ['$4.50/h'])
+  assert.deepEqual(run([[['rate', 'round']]], ctx(hour)), ['$5/h'])
+  // Half an hour at the same spend is twice the rate.
+  assert.deepEqual(run([['rate']], ctx({ cost: { total_cost_usd: 4.5, total_duration_ms: 1_800_000 } })), ['$9.00/h'])
+  // Too early to mean anything.
+  assert.deepEqual(run([['rate']], ctx({ cost: { total_cost_usd: 0.4, total_duration_ms: 5_000 } })), [])
+  assert.deepEqual(run([['rate']], ctx({ cost: { total_cost_usd: 4.5 } })), [])
+})
+
+test('time renders the clock at the moment of the render', () => {
+  // Local time depends on the runner's zone, so the shape is what matters.
+  assert.match(run([['time']], ctx({}))[0]!, /^\d{2}:\d{2}$/)
+  assert.match(run([[['time', 'seconds']]], ctx({}))[0]!, /^\d{2}:\d{2}:\d{2}$/)
+  assert.match(run([[['time', 'hm12']]], ctx({}))[0]!, /^\d{1,2}:\d{2}(am|pm)$/)
+})
+
+test('host names the machine, and the ssh variant only when the session is remote', () => {
+  assert.match(run([['host']], ctx({}))[0]!, /\S/)
+  const wasSsh = process.env.SSH_TTY
+  delete process.env.SSH_TTY
+  const wasConn = process.env.SSH_CONNECTION
+  delete process.env.SSH_CONNECTION
+  assert.deepEqual(run([[['host', 'ssh']]], ctx({})), [])
+  process.env.SSH_TTY = '/dev/ttys001'
+  assert.match(run([[['host', 'ssh']]], ctx({}))[0]!, /\S/)
+  if (wasSsh === undefined) delete process.env.SSH_TTY
+  else process.env.SSH_TTY = wasSsh
+  if (wasConn !== undefined) process.env.SSH_CONNECTION = wasConn
 })

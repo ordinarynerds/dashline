@@ -6,6 +6,7 @@ const MAX_ETA = 6 * 3600 // do not project further out than this
 // Fits a line to the recent context history and, if it is climbing, projects when it will
 // cross the critical threshold. Hidden when context is flat, falling, or already critical.
 export const burn: Widget = {
+  needs: { history: true },
   data(ctx) {
     const pts = (ctx.history ?? []).filter((s) => s.ctx != null).map((s) => ({ t: s.t, v: s.ctx! }))
     if (pts.length < 3) return null

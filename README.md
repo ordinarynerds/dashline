@@ -128,11 +128,17 @@ command, and a `{ "text": ... }` item is printed literally.
 | Widget      | Example                             | Displays                           | Type     |
 | ----------- | ----------------------------------- | ---------------------------------- | -------- |
 | `branch`    | `⎇ main`                            | git branch                         | label    |
+| `dirty`     | `+2 *3 ?1`                          | staged, unstaged, untracked files  | label    |
+| `sync`      | `↑2↓3`                              | commits ahead of and behind upstream | label  |
+| `sha`       | `a1b2c3d`                           | short commit hash                  | label    |
+| `stash`     | `⚑2`                                | stash entries                      | label    |
+| `diff`      | `+42 -10`                           | working-tree churn against HEAD    | delta    |
 | `model`     | `Opus 4.8`                          | model name                         | label    |
 | `context`   | `44% ████░░░░░░ (440k/1.0M) · high` | model context                      | percent  |
 | `session`   | `session 61% (↻2h11m)`              | session usage and reset            | percent  |
 | `weekly`    | `All 74%`                           | weekly usage                       | percent  |
 | `cost`      | `$2.69`                             | session cost                       | money    |
+| `rate`      | `$4.10/h`                           | spend per hour                     | money    |
 | `duration`  | `37m`                               | wall-clock this session            | duration |
 | `lines`     | `+156 -23`                          | lines added and removed            | delta    |
 | `pr`        | `PR #702`                           | open PR number                     | label    |
@@ -149,11 +155,55 @@ command, and a `{ "text": ... }` item is printed literally.
 | `thinking`  | `thinking`                          | extended thinking                  | flag     |
 | `vim`       | `NORMAL`                            | vim mode                           | label    |
 | `agent`     | `security-reviewer`                 | active subagent                    | label    |
+| `host`      | `workbench`                         | machine name                       | label    |
+| `time`      | `14:32`                             | clock at the last render           | label    |
 
 `context`, `session`, and `weekly` color themselves by fill (green to red). The usage
 pair appears on Pro and Max once the payload carries rate limits. The `burn` widget, the
 `history` variant, and the `trend` option read a short history of the session, so they
 appear after a few refreshes.
+
+`diff` counts what the working tree has changed against `HEAD`; `lines` counts what this
+session wrote, from the payload. They answer different questions and often disagree.
+
+`cost` is what the session has spent and `rate` is how fast; `rate` waits for a minute of
+wall clock, below which the number is noise. `time` is the clock at the moment of the last
+render, not a ticking one — the status line only redraws when Claude Code refreshes it.
+
+### Widget variants
+
+A few widgets read more than one field. These pick which:
+
+| Item                     | Shows                    | Item                    | Shows          |
+| ------------------------ | ------------------------ | ----------------------- | -------------- |
+| `["model", "full"]`      | `Opus 4.8 (1M context)`  | `["repo", "full"]`      | `owner/repo`   |
+| `["model", "id"]`        | `claude-opus-5`          | `["repo", "owner"]`     | `owner`        |
+| `["name", "id"]`         | `abcd1234`               | `["repo", "host"]`      | `github.com`   |
+| `["context", "left"]`    | `560k left`              | `["host", "ssh"]`       | only when remote |
+| `["time", "seconds"]`    | `14:32:07`               | `["time", "hm12"]`      | `2:32pm`       |
+
+`model` trims the trailing parenthetical by default, so `full` is how you keep the 1M/200k
+distinction on screen.
+
+### Working-tree variants
+
+`dirty` and `sync` each read several numbers, and a label carries one color, so every
+part is also its own variant. Use one item for a combined reading, or several to color
+each part:
+
+| Item                      | Shows        | Item                     | Shows      |
+| ------------------------- | ------------ | ------------------------ | ---------- |
+| `dirty`                   | `+2 *3 ?1`   | `sync`                   | `↑2↓3`     |
+| `["dirty", "flags"]`      | `+*?`        | `["sync", "ahead"]`      | `↑2`       |
+| `["dirty", "staged"]`     | `+2`         | `["sync", "behind"]`     | `↓3`       |
+| `["dirty", "unstaged"]`   | `*3`         | `["sync", "synced"]`     | `≡`        |
+| `["dirty", "untracked"]`  | `?1`         |                          |            |
+| `["dirty", "conflicts"]`  | `!1`         |                          |            |
+| `["dirty", "clean"]`      | `✓`          |                          |            |
+
+Each hides when its count is zero, so a clean tree shows nothing and `["dirty", "clean"]`
+is how you ask for a positive signal instead. `sync` hides entirely when the branch has
+no upstream, rather than claiming it is level with nothing.
 
 ### Presentations, by type
 
@@ -179,18 +229,34 @@ Object-form keys that change what a widget shows rather than how. Combine them w
 
 | Option                    | Types       | Effect                                                      |
 | ------------------------- | ----------- | ----------------------------------------------------------- |
-| `label`                   | percent     | rename the prefix, such as `session` to `5h`                |
 | `countdown`               | percent     | set `false` to drop the reset countdown                     |
 | `warningAt`, `criticalAt` | percent     | color thresholds for this item, overriding the global ones  |
-| `trend`                   | percent     | append a ↑/↓/→ arrow for context, read from session history |
+| `trend`                   | context     | append a ↑/↓/→ arrow, read from session history             |
 | `width`                   | percent     | bar width in columns                                        |
 | `bar`                     | percent     | bar glyph style (see [bar styles](#bar-styles))             |
 | `truncate`                | label       | shorten the text to N characters with an ellipsis           |
-| `icon`                    | label       | a glyph placed before the text                              |
+| `icon`                    | any         | a glyph placed before the item                              |
+| `label`                   | any         | a word placed before the item, such as `session` or `spend` |
 | `color`                   | any         | a fixed color (see below)                                   |
 | `bg`                      | text, label | a background color, for badges                              |
 | `bold`, `italic`, `underline` | any     | set `true` to add that text attribute, alongside any color  |
 | `variant`                 | any         | which presentation to draw                                  |
+
+`icon` and `label` are drawn around every widget, whatever its type — they are trimmings, not
+part of how a value is rendered, so they are applied once for all of them. A widget that names
+its own (`branch`'s `⎇`, `session`'s `session`) has that used as the default, and either option
+overrides it. An `icon` or `label` you set survives a variant; a widget's own label does not,
+because a variant asks for one piece of the widget in isolation:
+
+```json
+["cost", { "icon": "$", "label": "spend" }]   // $ spend $2.69
+["session", { "label": "5h" }]                 // 5h 61% (↻2h11m)
+["session", "bar"]                             // ██████░░░░  — the widget's own label steps aside
+["context", { "variant": "bar", "label": "ctx" }]  // ctx ████░░░░░░
+```
+
+`trend` is the exception that really is type-bound: session history records only the context
+percentage, so there is no series for `session` or `weekly` to compare against.
 
 ### Colors
 
@@ -228,7 +294,7 @@ a fuller bar reads hotter. It uses truecolor, unlike the single-color styles abo
 
 `theme` remaps the named colors to a palette in one move, so every widget that uses a named
 color, and the fill colors on `context`, `session`, and `weekly`, follow the scheme.
-Available: `nord`, `dracula`, `gruvbox`, `catppuccin`.
+Available: `nord`, `dracula`, `gruvbox`, `catppuccin`, `ordinarynerds`.
 
 ```json
 { "dashline": { "theme": "catppuccin", "lines": [["branch", "model", "context"]] } }
@@ -255,7 +321,7 @@ Alongside `lines`, the `dashline` object takes:
 | `separator`         | `·`     | drawn dim between items in a zone                                               |
 | `margin`            | `5`     | columns kept free at the right edge                                             |
 | `powerline`         | `false` | draw each zone as arrow-joined segments (needs a Nerd Font)                     |
-| `theme`             | `""`    | recolor named colors from a palette: `nord`, `dracula`, `gruvbox`, `catppuccin` |
+| `theme`             | `""`    | recolor named colors from a palette: `nord`, `dracula`, `gruvbox`, `catppuccin`, `ordinarynerds` |
 | `icons`             | `false` | prefix label widgets with a Nerd Font glyph                                     |
 | `contextWarningAt`  | `40`    | context turns yellow ("high") at/above this %                                   |
 | `contextCriticalAt` | `50`    | context turns red with the `→ /compact` nudge at/above this %                   |
@@ -284,8 +350,22 @@ reads the `dashline` config from the settings files, and prints one line per ent
 `lines`. It makes no network calls and does not read the transcript.
 
 Each widget is a pure function from the payload to a typed value, which a presenter draws.
-The git branch and worktree are not in the payload, so dashline runs `git` once. Each
-command item runs under a 2-second timeout.
+Each command item runs under a 2-second timeout.
+
+Git state is not in the payload, so dashline shells out — but only for what the config
+asks for, since every call costs time on each refresh:
+
+| Config contains                          | Cost                                                   |
+| ---------------------------------------- | ------------------------------------------------------ |
+| no git widget                            | nothing                                                |
+| `branch`                                 | one `rev-parse`                                        |
+| any of `dirty`, `sync`, `stash`          | one `git status --porcelain=v2`, which also carries the branch and sha |
+| `diff`                                   | one more, `git diff --shortstat HEAD`                  |
+| `worktree`, when the payload omits it    | one more `rev-parse`                                   |
+
+So `branch` alone and `branch dirty sync stash sha` together both cost a single call.
+Each is capped at one second: a repository slow enough to miss that shows nothing rather
+than stalling the prompt.
 
 The `burn` widget, the `history` variant, and the `trend` option need a history, so when
 the config uses one dashline keeps a small `dashline-state/` directory next to the settings

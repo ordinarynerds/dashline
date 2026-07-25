@@ -23,6 +23,12 @@ const ICONS: Record<string, string> = Object.fromEntries(
       ['effort', 0xf0e4],
       ['output', 0xf013],
       ['cost', 0xf155],
+      ['dirty', 0xf06a],
+      ['sync', 0xf0ec],
+      ['sha', 0xf417],
+      ['stash', 0xf187],
+      ['host', 0xf233],
+      ['time', 0xf017],
     ] as const
   ).map(([id, cp]) => [id, String.fromCodePoint(cp)]),
 )

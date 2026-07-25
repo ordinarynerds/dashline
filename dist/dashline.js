@@ -16,6 +16,7 @@ import { join } from "node:path";
 
 // src/widgets/branch.ts
 var branch = {
+  needs: { branch: true },
   data({ git }) {
     if (!git.branch) return null;
     return { kind: "label", text: git.branch, icon: "\u2387", color: "cyan" };
@@ -24,10 +25,15 @@ var branch = {
 
 // src/widgets/model.ts
 var model = {
-  data({ payload: payload2 }) {
-    const name2 = payload2.model?.display_name?.replace(/\s*\([^)]*\)\s*$/, "");
-    if (!name2) return null;
-    return { kind: "label", text: name2, color: "bold" };
+  data({ payload: payload2 }, opts) {
+    if (opts.variant === "id") {
+      const id = payload2.model?.id;
+      return id ? { kind: "label", text: id, color: "dim" } : null;
+    }
+    const full = payload2.model?.display_name;
+    if (!full) return null;
+    if (opts.variant === "full") return { kind: "label", text: full, color: "bold" };
+    return { kind: "label", text: full.replace(/\s*\([^)]*\)\s*$/, ""), color: "bold" };
   }
 };
 
@@ -59,18 +65,31 @@ function contextPercent(payload2) {
 }
 
 // src/widgets/usage.ts
+var named = (label3, variant) => variant ? void 0 : label3;
 var session = {
-  data({ payload: payload2 }) {
+  data({ payload: payload2 }, opts) {
     const w = payload2.rate_limits?.five_hour;
     if (w?.used_percentage == null) return null;
-    return { kind: "percent", value: w.used_percentage, scale: "usage", label: "session", reset: w.resets_at };
+    return {
+      kind: "percent",
+      value: w.used_percentage,
+      scale: "usage",
+      label: named("session", opts.variant),
+      reset: w.resets_at
+    };
   }
 };
 var weekly = {
-  data({ payload: payload2 }) {
+  data({ payload: payload2 }, opts) {
     const w = payload2.rate_limits?.seven_day;
     if (w?.used_percentage == null) return null;
-    return { kind: "percent", value: w.used_percentage, scale: "usage", label: "All" };
+    return {
+      kind: "percent",
+      value: w.used_percentage,
+      scale: "usage",
+      label: named("All", opts.variant),
+      reset: w.resets_at
+    };
   }
 };
 
@@ -128,6 +147,7 @@ var review = {
 
 // src/widgets/worktree.ts
 var worktree = {
+  needs: { worktree: true },
   data({ git }) {
     if (!git.worktree) return null;
     return { kind: "label", text: git.worktree, icon: "\u2302", iconColor: "yellow", color: "yellow" };
@@ -150,7 +170,10 @@ var cwd = {
 var repo = {
   data({ payload: payload2 }, opts) {
     const r = payload2.workspace?.repo;
-    if (!r?.name) return null;
+    if (!r) return null;
+    if (opts.variant === "owner") return r.owner ? { kind: "label", text: r.owner, color: "dim" } : null;
+    if (opts.variant === "host") return r.host ? { kind: "label", text: r.host, color: "dim" } : null;
+    if (!r.name) return null;
     const text = opts.variant === "full" && r.owner ? `${r.owner}/${r.name}` : r.name;
     return { kind: "label", text, color: "dim" };
   }
@@ -168,6 +191,10 @@ var effort = {
 // src/widgets/name.ts
 var name = {
   data({ payload: payload2 }, opts) {
+    if (opts.variant === "id") {
+      const sid = payload2.session_id;
+      return sid ? { kind: "label", text: sid.slice(0, 8), color: "dim" } : null;
+    }
     const n = payload2.session_name;
     if (!n) return null;
     const text = opts.id && payload2.session_id ? `${n}-${payload2.session_id.slice(0, 8)}` : n;
@@ -228,6 +255,7 @@ function countdown(resetsAt, now2) {
 // src/widgets/burn.ts
 var MAX_ETA = 6 * 3600;
 var burn = {
+  needs: { history: true },
   data(ctx2) {
     const pts = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => ({ t: s.t, v: s.ctx }));
     if (pts.length < 3) return null;
@@ -262,12 +290,12 @@ function slopeOf(pts) {
 // src/widgets/flags.ts
 var fast = {
   data({ payload: payload2 }) {
-    return { kind: "flag", on: Boolean(payload2.fast_mode), label: "fast" };
+    return { kind: "flag", on: Boolean(payload2.fast_mode), text: "fast" };
   }
 };
 var thinking = {
   data({ payload: payload2 }) {
-    return { kind: "flag", on: Boolean(payload2.thinking?.enabled), label: "thinking" };
+    return { kind: "flag", on: Boolean(payload2.thinking?.enabled), text: "thinking" };
   }
 };
 var vim = {
@@ -284,6 +312,132 @@ var agent = {
     return { kind: "label", text: n, color: "magenta" };
   }
 };
+
+// src/widgets/dirty.ts
+var dirty = {
+  needs: { status: true },
+  data({ git }, opts) {
+    if (git.staged == null) return null;
+    const staged = git.staged;
+    const unstaged = git.unstaged ?? 0;
+    const untracked = git.untracked ?? 0;
+    const conflicts = git.conflicts ?? 0;
+    const clean = !staged && !unstaged && !untracked && !conflicts;
+    switch (opts.variant) {
+      case "staged":
+        return part(staged, "+", "green");
+      case "unstaged":
+        return part(unstaged, "*", "yellow");
+      case "untracked":
+        return part(untracked, "?", "red");
+      case "conflicts":
+        return part(conflicts, "!", "red");
+      case "clean":
+        return clean ? { kind: "label", text: "\u2713", color: "green" } : null;
+      case "flags": {
+        if (clean) return null;
+        const text = `${staged ? "+" : ""}${unstaged ? "*" : ""}${untracked ? "?" : ""}${conflicts ? "!" : ""}`;
+        return { kind: "label", text, color: conflicts ? "red" : "yellow" };
+      }
+      default: {
+        if (clean) return null;
+        const parts = [];
+        if (staged) parts.push(`+${staged}`);
+        if (unstaged) parts.push(`*${unstaged}`);
+        if (untracked) parts.push(`?${untracked}`);
+        if (conflicts) parts.push(`!${conflicts}`);
+        return { kind: "label", text: parts.join(" "), color: conflicts ? "red" : "yellow" };
+      }
+    }
+  }
+};
+function part(n, symbol, color) {
+  return n ? { kind: "label", text: `${symbol}${n}`, color } : null;
+}
+
+// src/widgets/sync.ts
+var sync = {
+  needs: { status: true },
+  data({ git }, opts) {
+    const { ahead, behind } = git;
+    if (ahead == null || behind == null) return null;
+    if (opts.variant === "ahead") return ahead ? { kind: "label", text: `\u2191${ahead}`, color: "green" } : null;
+    if (opts.variant === "behind") return behind ? { kind: "label", text: `\u2193${behind}`, color: "yellow" } : null;
+    if (opts.variant === "synced") return !ahead && !behind ? { kind: "label", text: "\u2261", color: "green" } : null;
+    if (!ahead && !behind) return null;
+    const text = `${ahead ? `\u2191${ahead}` : ""}${behind ? `\u2193${behind}` : ""}`;
+    return { kind: "label", text, color: behind ? "yellow" : "green" };
+  }
+};
+
+// src/widgets/sha.ts
+var sha = {
+  needs: { sha: true },
+  data({ git }) {
+    if (!git.sha) return null;
+    return { kind: "label", text: git.sha, color: "dim" };
+  }
+};
+
+// src/widgets/stash.ts
+var stash = {
+  needs: { status: true },
+  data({ git }) {
+    if (!git.stash) return null;
+    return { kind: "label", text: `\u2691${git.stash}`, color: "dim" };
+  }
+};
+
+// src/widgets/diff.ts
+var diff = {
+  needs: { diff: true },
+  data({ git }) {
+    const added = git.added ?? 0;
+    const removed = git.removed ?? 0;
+    if (!added && !removed) return null;
+    return { kind: "delta", added, removed };
+  }
+};
+
+// src/widgets/rate.ts
+var MIN_MS = 6e4;
+var rate = {
+  data({ payload: payload2 }) {
+    const usd = payload2.cost?.total_cost_usd;
+    const ms = payload2.cost?.total_duration_ms;
+    if (usd == null || ms == null || ms < MIN_MS) return null;
+    return { kind: "money", usd: usd / (ms / 36e5), suffix: "/h" };
+  }
+};
+
+// src/widgets/host.ts
+import { hostname } from "node:os";
+var host = {
+  data(_ctx, opts) {
+    if (opts.variant === "ssh" && !process.env.SSH_CONNECTION && !process.env.SSH_TTY) return null;
+    const name2 = hostname().replace(/\.local$/, "");
+    if (!name2) return null;
+    return { kind: "label", text: name2, color: "dim" };
+  }
+};
+
+// src/widgets/time.ts
+var time = {
+  data({ now: now2 }, opts) {
+    const d = new Date(now2 * 1e3);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    if (opts.variant === "seconds") return label(`${hh}:${mm}:${String(d.getSeconds()).padStart(2, "0")}`);
+    if (opts.variant === "hm12") {
+      const h12 = d.getHours() % 12 || 12;
+      return label(`${h12}:${mm}${d.getHours() < 12 ? "am" : "pm"}`);
+    }
+    return label(`${hh}:${mm}`);
+  }
+};
+function label(text) {
+  return { kind: "label", text, color: "dim" };
+}
 
 // src/widgets/registry.ts
 var registry = {
@@ -308,7 +462,15 @@ var registry = {
   fast,
   thinking,
   vim,
-  agent
+  agent,
+  dirty,
+  sync,
+  sha,
+  stash,
+  diff,
+  rate,
+  host,
+  time
 };
 var widgetNames = new Set(Object.keys(registry));
 
@@ -388,27 +550,110 @@ function read(file) {
 // src/util/git.ts
 import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
-function readGit(dir2, worktreeHint) {
+function readGit(dir2, worktreeHint, needs = {}) {
   if (!dir2) return {};
-  const out = run(dir2, ["rev-parse", "--abbrev-ref", "HEAD", "--absolute-git-dir"]);
+  let info = {};
+  if (needs.status) {
+    const status = readStatus(dir2);
+    if (!status) return {};
+    info = status;
+  }
+  const head = {
+    branch: needs.branch && !needs.status,
+    sha: needs.sha && !needs.status,
+    worktree: needs.worktree && !worktreeHint
+  };
+  if (head.branch || head.sha || head.worktree) {
+    const read2 = readHead(dir2, head);
+    if (!read2) return needs.status ? info : {};
+    info = { ...info, ...read2 };
+  }
+  if (needs.diff) Object.assign(info, readDiff(dir2));
+  if (worktreeHint) info.worktree = worktreeHint;
+  return info;
+}
+function readStatus(dir2) {
+  const out = run(dir2, ["--no-optional-locks", "status", "--porcelain=v2", "--branch", "--show-stash", "--no-renames"]);
+  if (out === void 0) return null;
+  return parseStatus(out);
+}
+function parseStatus(out) {
+  const info = { staged: 0, unstaged: 0, untracked: 0, conflicts: 0, stash: 0 };
+  let detached = false;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("# branch.oid ")) {
+      const oid = line.slice(13);
+      if (oid !== "(initial)") info.sha = oid.slice(0, 7);
+    } else if (line.startsWith("# branch.head ")) {
+      const head = line.slice(14);
+      if (head === "(detached)") detached = true;
+      else info.branch = head;
+    } else if (line.startsWith("# branch.ab ")) {
+      const m = /^\+(\d+) -(\d+)$/.exec(line.slice(12));
+      if (m) {
+        info.ahead = Number(m[1]);
+        info.behind = Number(m[2]);
+      }
+    } else if (line.startsWith("# stash ")) {
+      info.stash = Number(line.slice(8)) || 0;
+    } else if (line.startsWith("1 ") || line.startsWith("2 ")) {
+      if (line[2] !== ".") info.staged++;
+      if (line[3] !== ".") info.unstaged++;
+    } else if (line.startsWith("u ")) {
+      info.conflicts++;
+    } else if (line.startsWith("? ")) {
+      info.untracked++;
+    }
+  }
+  if (detached) info.branch = info.sha ?? "HEAD";
+  return info;
+}
+function readHead(dir2, needs) {
+  const args = ["rev-parse"];
+  const fields = [];
+  const wantHead = needs.branch || needs.sha;
+  if (wantHead) {
+    args.push("HEAD", "--abbrev-ref", "HEAD");
+    fields.push("sha", "branch");
+  }
+  if (needs.worktree) {
+    args.push("--absolute-git-dir", "--show-toplevel");
+    fields.push("gitDir", "top");
+  }
+  const out = run(dir2, args);
+  if (out === void 0) return null;
+  const lines2 = out.split("\n");
+  const at = (f) => lines2[fields.indexOf(f)];
+  const info = {};
+  if (wantHead) {
+    const sha2 = at("sha")?.slice(0, 7);
+    if (needs.sha) info.sha = sha2;
+    const head = at("branch");
+    if (head) info.branch = head === "HEAD" ? sha2 ?? "HEAD" : head;
+  }
+  if (needs.worktree && at("gitDir")?.includes("/worktrees/")) {
+    const top = at("top");
+    if (top) info.worktree = basename(top);
+  }
+  return info;
+}
+function readDiff(dir2) {
+  const out = run(dir2, ["diff", "--shortstat", "HEAD"]);
   if (!out) return {};
-  const [head, gitDir] = out.split("\n");
-  let branch2 = head;
-  if (branch2 === "HEAD") {
-    branch2 = run(dir2, ["rev-parse", "--short", "HEAD"]) ?? "HEAD";
-  }
-  let worktree2 = worktreeHint;
-  if (!worktree2 && gitDir?.includes("/worktrees/")) {
-    const top = run(dir2, ["rev-parse", "--show-toplevel"]);
-    if (top) worktree2 = basename(top);
-  }
-  return { branch: branch2 || void 0, worktree: worktree2 };
+  return {
+    added: Number(/(\d+) insertion/.exec(out)?.[1] ?? 0),
+    removed: Number(/(\d+) deletion/.exec(out)?.[1] ?? 0)
+  };
 }
 function run(dir2, args) {
   try {
     return execFileSync("git", ["-C", dir2, ...args], {
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"]
+      stdio: ["ignore", "pipe", "ignore"],
+      // A status line must not hang the prompt: a slow or enormous repo yields nothing
+      // rather than a stalled render.
+      timeout: 1e3,
+      maxBuffer: 8 * 1024 * 1024
     }).trim();
   } catch {
     return void 0;
@@ -416,31 +661,34 @@ function run(dir2, args) {
 }
 
 // src/scan.ts
-var GIT_WIDGETS = /* @__PURE__ */ new Set(["branch", "worktree"]);
-var HISTORY_WIDGETS = /* @__PURE__ */ new Set(["burn"]);
+var COMMAND_NEEDS = { branch: true, worktree: true };
 function scan(lines2) {
   const commands2 = /* @__PURE__ */ new Set();
-  let usesGit2 = false;
-  let usesHistory2 = false;
+  const needs = {};
   for (const line of lines2) {
     const zones = Array.isArray(line) ? { left: line } : line;
     for (const items of [zones.left, zones.center, zones.right]) {
       if (!items) continue;
       for (const item of items) {
-        if (usesHistoryItem(item)) usesHistory2 = true;
+        if (usesHistoryItem(item)) needs.history = true;
         const id = itemId(item);
         if (id === null) continue;
-        if (widgetNames.has(id)) {
-          if (GIT_WIDGETS.has(id)) usesGit2 = true;
-          if (HISTORY_WIDGETS.has(id)) usesHistory2 = true;
-        } else {
+        const widget = registry[id];
+        if (widget) Object.assign(needs, widget.needs);
+        else {
           commands2.add(id);
-          usesGit2 = true;
+          Object.assign(needs, COMMAND_NEEDS);
         }
       }
     }
   }
-  return { commands: [...commands2], usesGit: usesGit2, usesHistory: usesHistory2 };
+  const { history: history2, ...gitNeeds2 } = needs;
+  return {
+    commands: [...commands2],
+    usesGit: Object.values(gitNeeds2).some(Boolean),
+    usesHistory: Boolean(history2),
+    gitNeeds: gitNeeds2
+  };
 }
 function itemId(item) {
   if (typeof item === "string") return item;
@@ -575,6 +823,8 @@ var CODES = {
   reset: "0",
   bold: "1",
   dim: "2",
+  italic: "3",
+  underline: "4",
   black: "30",
   red: "31",
   green: "32",
@@ -589,7 +839,10 @@ var THEMES = {
   nord: { red: "#BF616A", green: "#A3BE8C", yellow: "#EBCB8B", blue: "#81A1C1", magenta: "#B48EAD", cyan: "#88C0D0", gray: "#4C566A", black: "#2E3440", white: "#ECEFF4" },
   dracula: { red: "#FF5555", green: "#50FA7B", yellow: "#F1FA8C", blue: "#6272A4", magenta: "#FF79C6", cyan: "#8BE9FD", gray: "#6272A4", black: "#282A36", white: "#F8F8F2" },
   gruvbox: { red: "#CC241D", green: "#98971A", yellow: "#D79921", blue: "#458588", magenta: "#B16286", cyan: "#689D6A", gray: "#928374", black: "#282828", white: "#EBDBB2" },
-  catppuccin: { red: "#F38BA8", green: "#A6E3A1", yellow: "#F9E2AF", blue: "#89B4FA", magenta: "#CBA6F7", cyan: "#94E2D5", gray: "#6C7086", black: "#1E1E2E", white: "#CDD6F4" }
+  catppuccin: { red: "#F38BA8", green: "#A6E3A1", yellow: "#F9E2AF", blue: "#89B4FA", magenta: "#CBA6F7", cyan: "#94E2D5", gray: "#6C7086", black: "#1E1E2E", white: "#CDD6F4" },
+  // Built from dashline's own palette: the coral and cyan the project brands itself with,
+  // with the rest of the ramp tuned to sit between them.
+  ordinarynerds: { red: "#FF6B4A", green: "#3FCF8E", yellow: "#F2B441", blue: "#5AA9F0", magenta: "#C678DD", cyan: "#4EC9D6", gray: "#6B6B70", black: "#1C1C20", white: "#F5F5F5" }
 };
 var activeTheme = null;
 function setTheme(name2) {
@@ -625,6 +878,14 @@ function fill(text, bg) {
 }
 function isStyle(term) {
   return term.split(/\s+/).every((word) => codesFor(word) !== null);
+}
+function styleTerm(color, opts) {
+  const words = [];
+  if (color) words.push(color);
+  if (opts.bold) words.push("bold");
+  if (opts.italic) words.push("italic");
+  if (opts.underline) words.push("underline");
+  return words.length ? words.join(" ") : void 0;
 }
 function codesFor(word) {
   const rgb = themedHex(word);
@@ -665,14 +926,14 @@ function bar(pct, rawWidth, style = "blocks") {
   const set = SETS[style] ?? SETS.blocks;
   const inner = set.wrap ? Math.max(0, width - 2) : width;
   const fill2 = Math.round(ratio * inner);
-  const body = set.full.repeat(fill2) + set.empty.repeat(inner - fill2);
-  return set.wrap ? set.wrap[0] + body + set.wrap[1] : body;
+  const body2 = set.full.repeat(fill2) + set.empty.repeat(inner - fill2);
+  return set.wrap ? set.wrap[0] + body2 + set.wrap[1] : body2;
 }
 function fine(ratio, width) {
   const eighths = Math.round(ratio * width * 8);
   const full = Math.floor(eighths / 8);
-  const part = eighths % 8;
-  const partial = part > 0 && full < width ? EIGHTHS[part] : "";
+  const part2 = eighths % 8;
+  const partial = part2 > 0 && full < width ? EIGHTHS[part2] : "";
   const empty = width - full - (partial ? 1 : 0);
   return "\u2588".repeat(Math.min(full, width)) + partial + "\u2591".repeat(Math.max(0, empty));
 }
@@ -682,20 +943,28 @@ var barStyles = [...Object.keys(SETS), "fine"];
 var GREEN = [53, 209, 59];
 var YELLOW = [229, 185, 58];
 var RED = [255, 85, 85];
-function gradientBar(value, rawWidth) {
+function gradientBar(value, rawWidth, opts = {}) {
   const width = clampWidth(rawWidth);
+  const attr = attrCodes(opts);
   const ratio = Math.min(100, Math.max(0, value)) / 100;
   const filled = Math.round(ratio * width);
   let out = "";
   for (let i = 0; i < width; i++) {
     if (i < filled) {
       const [r, g, b] = ramp(width === 1 ? 1 : i / (width - 1));
-      out += `\x1B[38;2;${r};${g};${b}m\u2588`;
+      out += `\x1B[38;2;${r};${g};${b}${attr}m\u2588`;
     } else {
-      out += "\x1B[0;2m\u2591";
+      out += `\x1B[0;2${attr}m\u2591`;
     }
   }
   return `${out}\x1B[0m`;
+}
+function attrCodes(opts) {
+  let s = "";
+  if (opts.bold) s += ";1";
+  if (opts.italic) s += ";3";
+  if (opts.underline) s += ";4";
+  return s;
 }
 function ramp(f) {
   return f <= 0.5 ? lerp(GREEN, YELLOW, f / 0.5) : lerp(YELLOW, RED, (f - 0.5) / 0.5);
@@ -713,63 +982,65 @@ var DEFAULT_WIDTH = 10;
 function percent(d, opts, ctx2) {
   const color = opts.color ?? fillColor(d, opts, ctx2);
   const width = clampWidth(opts.width ?? DEFAULT_WIDTH);
-  const number = paint(`${Math.round(d.value)}%`, `bold ${color}`);
-  const meter = opts.bar === "gradient" ? gradientBar(d.value, width) : paint(bar(d.value, width, opts.bar), color);
+  const number = paint(`${Math.round(d.value)}%`, styleTerm(`bold ${color}`, opts));
+  const meter = opts.bar === "gradient" ? gradientBar(d.value, width, opts) : paint(bar(d.value, width, opts.bar), styleTerm(color, opts));
   switch (opts.variant) {
     case "pct":
       return number;
     case "bar":
       return meter;
     case "gauge":
-      return paint(`\u2595${bar(d.value, width, opts.bar)}\u258F`, color);
+      return paint(`\u2595${bar(d.value, width, opts.bar)}\u258F`, styleTerm(color, opts));
     case "ratio":
-      return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, color) : number;
+      return d.tokens ? paint(`${human(d.tokens.used)}/${human(d.tokens.size)}`, styleTerm(color, opts)) : number;
     case "tokens":
-      return d.tokens ? paint(tokens(d), "dim") : number;
+      return d.tokens ? paint(tokens(d), styleTerm("dim", opts)) : number;
+    // Headroom rather than fill: what is left, not what is spent.
+    case "left":
+      return d.tokens ? paint(`${human(Math.max(0, d.tokens.size - d.tokens.used))} left`, styleTerm(color, opts)) : number;
     case "history":
-      return history(ctx2) ?? number;
+      return history(ctx2, opts) ?? number;
   }
-  const label2 = opts.label ?? d.label;
+  const dim = styleTerm("dim", opts);
   const parts = [];
-  if (label2) parts.push(paint(label2, "dim"));
   parts.push(number);
   if (opts.trend && d.scale === "context") {
-    const arrow = trendArrow(ctx2, d.value);
+    const arrow = trendArrow(ctx2, d.value, opts);
     if (arrow) parts.push(arrow);
   }
   if (d.defaultBar || opts.bar) parts.push(meter);
-  if (d.tokens) parts.push(paint(tokens(d), "dim"));
+  if (d.tokens) parts.push(paint(tokens(d), dim));
   if (d.hint && d.value >= ctx2.thresholds.critical) {
     parts.push(
-      `${paint("\u2192 /compact", "bold red")} ${paint("[focus instructions]", "dim")}`
+      `${paint("\u2192 /compact", styleTerm("bold red", opts))} ${paint("[focus instructions]", dim)}`
     );
   } else if (d.hint && d.value >= ctx2.thresholds.warning) {
-    parts.push(paint("\xB7 high", "yellow"));
+    parts.push(paint("\xB7 high", styleTerm("yellow", opts)));
   }
   if (d.reset && opts.countdown !== false)
-    parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, "dim"));
+    parts.push(paint(`(\u21BB${countdown(d.reset, ctx2.now)})`, dim));
   return parts.join(" ");
 }
 function tokens(d) {
   return `(${human(d.tokens.used)}/${human(d.tokens.size)})`;
 }
-function history(ctx2) {
+function history(ctx2, opts) {
   const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
   if (values.length < 2) return null;
   const recent = values.slice(-20);
   const last = recent[recent.length - 1];
   const t = ctx2.thresholds;
   const color = last >= t.critical ? "red" : last >= t.warning ? "yellow" : "green";
-  return paint(spark(recent), color);
+  return paint(spark(recent), styleTerm(color, opts));
 }
-function trendArrow(ctx2, current) {
+function trendArrow(ctx2, current, opts) {
   const values = (ctx2.history ?? []).filter((s) => s.ctx != null).map((s) => s.ctx);
   if (values.length < 3) return null;
   const prev = values[Math.max(0, values.length - 6)];
   const delta2 = current - prev;
-  if (delta2 > 1) return paint("\u2191", "yellow");
-  if (delta2 < -1) return paint("\u2193", "green");
-  return paint("\u2192", "dim");
+  if (delta2 > 1) return paint("\u2191", styleTerm("yellow", opts));
+  if (delta2 < -1) return paint("\u2193", styleTerm("green", opts));
+  return paint("\u2192", styleTerm("dim", opts));
 }
 function fillColor(d, opts, ctx2) {
   const t = ctx2.thresholds;
@@ -780,32 +1051,33 @@ function fillColor(d, opts, ctx2) {
 
 // src/present/scalars.ts
 function duration3(d, opts) {
-  const color = opts.color ?? "dim";
+  const term = styleTerm(opts.color ?? "dim", opts);
   const { h, m, s } = hms(d.ms);
-  if (opts.variant === "long") return paint(`${h}h${String(m).padStart(2, "0")}m`, color);
+  if (opts.variant === "long") return paint(`${h}h${String(m).padStart(2, "0")}m`, term);
   if (opts.variant === "clock") {
-    return paint(`${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`, color);
+    return paint(`${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`, term);
   }
-  return paint(duration2(d.ms), color);
+  return paint(duration2(d.ms), term);
 }
 function money(d, opts) {
-  const color = opts.color ?? "green";
-  if (opts.variant === "cents") return paint(`${Math.round(d.usd * 100)}c`, color);
-  if (opts.variant === "round") return paint(`$${Math.round(d.usd)}`, color);
-  return paint(`$${d.usd.toFixed(2)}`, color);
+  const term = styleTerm(opts.color ?? "green", opts);
+  const tail = d.suffix ?? "";
+  if (opts.variant === "cents") return paint(`${Math.round(d.usd * 100)}c${tail}`, term);
+  if (opts.variant === "round") return paint(`$${Math.round(d.usd)}${tail}`, term);
+  return paint(`$${d.usd.toFixed(2)}${tail}`, term);
 }
 function delta(d, opts) {
-  if (opts.variant === "added") return paint(`+${d.added}`, opts.color ?? "green");
+  if (opts.variant === "added") return paint(`+${d.added}`, styleTerm(opts.color ?? "green", opts));
   if (opts.variant === "sum") {
     const net = d.added - d.removed;
-    return paint(`${net >= 0 ? "+" : ""}${net}`, opts.color ?? (net >= 0 ? "green" : "red"));
+    return paint(`${net >= 0 ? "+" : ""}${net}`, styleTerm(opts.color ?? (net >= 0 ? "green" : "red"), opts));
   }
-  if (opts.color) return paint(`+${d.added} -${d.removed}`, opts.color);
-  return `${paint(`+${d.added}`, "green")} ${paint(`-${d.removed}`, "red")}`;
+  if (opts.color) return paint(`+${d.added} -${d.removed}`, styleTerm(opts.color, opts));
+  return `${paint(`+${d.added}`, styleTerm("green", opts))} ${paint(`-${d.removed}`, styleTerm("red", opts))}`;
 }
 function flag(d, opts) {
-  if (opts.variant === "onoff") return paint(`${d.label}:${d.on ? "on" : "off"}`, opts.color ?? (d.on ? "green" : "dim"));
-  return d.on ? paint(d.label, opts.color ?? "yellow") : null;
+  if (opts.variant === "onoff") return paint(`${d.text}:${d.on ? "on" : "off"}`, styleTerm(opts.color ?? (d.on ? "green" : "dim"), opts));
+  return d.on ? paint(d.text, styleTerm(opts.color ?? "yellow", opts)) : null;
 }
 
 // src/util/width.ts
@@ -854,7 +1126,7 @@ function charWidth(cp) {
 
 // src/present/label.ts
 import { basename as basename2 } from "node:path";
-function label(d, opts) {
+function label2(d, opts) {
   let text = d.text;
   const v = opts.variant;
   if (v === "basename") text = basename2(text);
@@ -863,13 +1135,17 @@ function label(d, opts) {
   const limit = opts.truncate ?? (v?.startsWith("truncate:") ? Number(v.slice("truncate:".length)) : 0);
   if (limit > 0) text = clip(text, limit);
   const color = opts.color ?? d.color;
-  const body = color || opts.bg ? paint(text, color, opts.bg) : text;
-  const icon = opts.icon ?? d.icon;
-  return icon ? `${paint(icon, d.iconColor ?? "dim")} ${body}` : body;
+  const term = styleTerm(color, opts);
+  return term || opts.bg ? paint(text, term, opts.bg) : text;
 }
 
 // src/present/index.ts
 function present(datum, opts, ctx2) {
+  const text = body(datum, opts, ctx2);
+  if (text == null || text === "") return null;
+  return chrome(text, datum, opts);
+}
+function body(datum, opts, ctx2) {
   switch (datum.kind) {
     case "percent":
       return percent(datum, opts, ctx2);
@@ -880,10 +1156,19 @@ function present(datum, opts, ctx2) {
     case "delta":
       return delta(datum, opts);
     case "label":
-      return label(datum, opts);
+      return label2(datum, opts);
     case "flag":
       return flag(datum, opts);
   }
+}
+function chrome(text, d, opts) {
+  const out = [];
+  const icon = opts.icon ?? d.icon;
+  if (icon) out.push(paint(icon, styleTerm(d.iconColor ?? "dim", opts)));
+  const label3 = opts.label ?? d.label;
+  if (label3) out.push(paint(label3, styleTerm("dim", opts)));
+  out.push(text);
+  return out.join(" ");
 }
 
 // src/layout.ts
@@ -953,7 +1238,13 @@ var ICONS = Object.fromEntries(
     ["name", 62145],
     ["effort", 61668],
     ["output", 61459],
-    ["cost", 61781]
+    ["cost", 61781],
+    ["dirty", 61546],
+    ["sync", 61676],
+    ["sha", 62487],
+    ["stash", 61831],
+    ["host", 62003],
+    ["time", 61463]
   ].map(([id, cp]) => [id, String.fromCodePoint(cp)])
 );
 function render(config2, ctx2, columns2) {
@@ -1017,11 +1308,11 @@ var payload = parsePayload(raw);
 var config = loadConfig(payload);
 setTheme(config.theme);
 var dir = payload.workspace?.current_dir ?? payload.cwd;
-var { commands, usesGit, usesHistory } = scan(config.lines);
+var { commands, usesGit, usesHistory, gitNeeds } = scan(config.lines);
 var now = Math.floor(Date.now() / 1e3);
 var ctx = {
   payload,
-  git: usesGit ? readGit(dir, payload.workspace?.git_worktree) : {},
+  git: usesGit ? readGit(dir, payload.workspace?.git_worktree, gitNeeds) : {},
   thresholds: {
     warning: config.contextWarningAt,
     critical: config.contextCriticalAt,

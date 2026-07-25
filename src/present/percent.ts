@@ -29,6 +29,11 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
         : number;
     case "tokens":
       return d.tokens ? paint(tokens(d), styleTerm("dim", opts)) : number;
+    // Headroom rather than fill: what is left, not what is spent.
+    case "left":
+      return d.tokens
+        ? paint(`${human(Math.max(0, d.tokens.size - d.tokens.used))} left`, styleTerm(color, opts))
+        : number;
     case "history":
       return history(ctx, opts) ?? number;
   }
@@ -36,9 +41,8 @@ export function percent(d: Percent, opts: WidgetOpts, ctx: Ctx): string {
   // The detail parts stay dim/yellow but still carry the item's bold/italic/underline, so a
   // styled percent widget is styled across the whole item, not just its number.
   const dim = styleTerm("dim", opts);
-  const label = opts.label ?? d.label;
   const parts: string[] = [];
-  if (label) parts.push(paint(label, dim));
+  // The label is chrome and belongs to every kind, so present() adds it — see present/index.ts.
   parts.push(number);
   if (opts.trend && d.scale === "context") {
     const arrow = trendArrow(ctx, d.value, opts);

@@ -17,6 +17,14 @@ import { output } from './output.ts'
 import { version } from './version.ts'
 import { burn } from './burn.ts'
 import { fast, thinking, vim, agent } from './flags.ts'
+import { dirty } from './dirty.ts'
+import { sync } from './sync.ts'
+import { sha } from './sha.ts'
+import { stash } from './stash.ts'
+import { diff } from './diff.ts'
+import { rate } from './rate.ts'
+import { host } from './host.ts'
+import { time } from './time.ts'
 
 export const registry: Record<string, Widget> = {
   branch,
@@ -41,6 +49,14 @@ export const registry: Record<string, Widget> = {
   thinking,
   vim,
   agent,
+  dirty,
+  sync,
+  sha,
+  stash,
+  diff,
+  rate,
+  host,
+  time,
 }
 
 export const widgetNames = new Set(Object.keys(registry))

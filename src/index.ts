@@ -14,12 +14,12 @@ const payload = parsePayload(raw)
 const config = loadConfig(payload)
 setTheme(config.theme)
 const dir = payload.workspace?.current_dir ?? payload.cwd
-const { commands, usesGit, usesHistory } = scan(config.lines)
+const { commands, usesGit, usesHistory, gitNeeds } = scan(config.lines)
 const now = Math.floor(Date.now() / 1000)
 
 const ctx: Ctx = {
   payload,
-  git: usesGit ? readGit(dir, payload.workspace?.git_worktree) : {},
+  git: usesGit ? readGit(dir, payload.workspace?.git_worktree, gitNeeds) : {},
   thresholds: {
     warning: config.contextWarningAt,
     critical: config.contextCriticalAt,

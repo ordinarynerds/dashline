@@ -1,12 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { percent } from '../src/present/percent.ts'
+import { present } from '../src/present/index.ts'
 import { label } from '../src/present/label.ts'
 import { duration, delta } from '../src/present/scalars.ts'
 import { gradientBar } from '../src/present/gradient.ts'
 import { visibleWidth, strip } from '../src/util/width.ts'
 import type { Ctx } from '../src/widgets/types.ts'
-import type { Percent, Label, Duration, Delta } from '../src/datum.ts'
+import type { Datum, Percent, Label, Duration, Delta } from '../src/datum.ts'
 
 const ctx: Ctx = {
   payload: {},
@@ -47,15 +48,38 @@ test('percent: per-item warn/crit override the color', () => {
   assert.match(percent(d, { variant: 'pct', warningAt: 60, criticalAt: 80 }, ctx), /1;32m/) // green when raised
 })
 
+// The icon and the label are chrome, applied by present() for every datum kind rather than by
+// the individual presenters — so these go through present(), which is the layer that owns them.
 test('percent: label override and countdown toggle', () => {
   const d: Percent = { kind: 'percent', value: 61, scale: 'usage', label: 'session', reset: 2_000_000 }
-  assert.equal(strip(percent(d, { label: '5h', countdown: false }, ctx)), '5h 61%')
+  assert.equal(strip(present(d, { label: '5h', countdown: false }, ctx)!), '5h 61%')
 })
 
 test('label: truncate as a number and icon override', () => {
   const d: Label = { kind: 'label', text: 'feature-branch-name' }
   assert.equal(strip(label(d, { truncate: 6 })), 'featu…')
-  assert.equal(strip(label({ kind: 'label', text: 'main' }, { icon: '#' })), '# main')
+  assert.equal(strip(present({ kind: 'label', text: 'main' }, { icon: '#' }, ctx)!), '# main')
+})
+
+// Chrome is not the property of one presenter: every kind takes an icon and a label, and both
+// survive whatever variant the value itself is drawn with.
+test('chrome: icon and label apply to every datum kind', () => {
+  const cases: [Datum, string][] = [
+    [{ kind: 'money', usd: 2.69 }, '€ spend $2.69'],
+    [{ kind: 'delta', added: 156, removed: 23 }, '€ spend +156 -23'],
+    [{ kind: 'duration', ms: 2_220_000 }, '€ spend 37m'],
+    [{ kind: 'flag', on: true, text: 'fast' }, '€ spend fast'],
+    [{ kind: 'label', text: 'main' }, '€ spend main'],
+    [{ kind: 'percent', value: 44, scale: 'context' }, '€ spend 44%'],
+  ]
+  for (const [d, want] of cases) {
+    assert.equal(strip(present(d, { icon: '€', label: 'spend', variant: d.kind === 'percent' ? 'pct' : undefined }, ctx)!), want)
+  }
+})
+
+// A flag that is off draws nothing, and chrome must not resurrect it as a bare icon.
+test('chrome: an item with no body stays absent', () => {
+  assert.equal(present({ kind: 'flag', on: false, text: 'fast' }, { icon: '€', label: 'spend' }, ctx), null)
 })
 
 test('label: bold, italic, and underline each emit their SGR attribute', () => {

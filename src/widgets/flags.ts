@@ -2,13 +2,13 @@ import type { Widget } from './types.ts'
 
 export const fast: Widget = {
   data({ payload }) {
-    return { kind: 'flag', on: Boolean(payload.fast_mode), label: 'fast' }
+    return { kind: 'flag', on: Boolean(payload.fast_mode), text: 'fast' }
   },
 }
 
 export const thinking: Widget = {
   data({ payload }) {
-    return { kind: 'flag', on: Boolean(payload.thinking?.enabled), label: 'thinking' }
+    return { kind: 'flag', on: Boolean(payload.thinking?.enabled), text: 'thinking' }
   },
 }
 

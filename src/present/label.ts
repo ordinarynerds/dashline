@@ -16,8 +16,6 @@ export function label(d: Label, opts: WidgetOpts): string {
 
   const color = opts.color ?? d.color
   const term = styleTerm(color, opts)
-  const body = term || opts.bg ? paint(text, term, opts.bg) : text
-  const icon = opts.icon ?? d.icon
-  // The icon keeps its own dim/icon color but carries the item's bold/italic/underline too.
-  return icon ? `${paint(icon, styleTerm(d.iconColor ?? 'dim', opts))} ${body}` : body
+  // The icon is chrome and belongs to every kind, so present() adds it — see present/index.ts.
+  return term || opts.bg ? paint(text, term, opts.bg) : text
 }

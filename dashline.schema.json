@@ -20,7 +20,7 @@
         "separator": { "type": "string", "description": "Drawn dim between items in a zone." },
         "margin": { "type": "number", "description": "Columns kept free at the right edge." },
         "powerline": { "type": "boolean", "description": "Draw each zone as arrow-joined powerline segments. Needs a Nerd Font." },
-        "theme": { "enum": ["", "nord", "dracula", "gruvbox", "catppuccin"], "description": "Recolor named colors from a palette." },
+        "theme": { "enum": ["", "nord", "dracula", "gruvbox", "catppuccin", "ordinarynerds"], "description": "Recolor named colors from a palette." },
         "icons": { "type": "boolean", "description": "Prefix label widgets with a Nerd Font glyph." },
         "contextWarningAt": { "type": "number" },
         "contextCriticalAt": { "type": "number" },

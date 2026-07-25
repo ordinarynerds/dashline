@@ -22,6 +22,9 @@ const THEMES: Record<string, Record<string, string>> = {
   dracula: { red: '#FF5555', green: '#50FA7B', yellow: '#F1FA8C', blue: '#6272A4', magenta: '#FF79C6', cyan: '#8BE9FD', gray: '#6272A4', black: '#282A36', white: '#F8F8F2' },
   gruvbox: { red: '#CC241D', green: '#98971A', yellow: '#D79921', blue: '#458588', magenta: '#B16286', cyan: '#689D6A', gray: '#928374', black: '#282828', white: '#EBDBB2' },
   catppuccin: { red: '#F38BA8', green: '#A6E3A1', yellow: '#F9E2AF', blue: '#89B4FA', magenta: '#CBA6F7', cyan: '#94E2D5', gray: '#6C7086', black: '#1E1E2E', white: '#CDD6F4' },
+  // Built from dashline's own palette: the coral and cyan the project brands itself with,
+  // with the rest of the ramp tuned to sit between them.
+  ordinarynerds: { red: '#FF6B4A', green: '#3FCF8E', yellow: '#F2B441', blue: '#5AA9F0', magenta: '#C678DD', cyan: '#4EC9D6', gray: '#6B6B70', black: '#1C1C20', white: '#F5F5F5' },
 }
 
 let activeTheme: Record<string, string> | null = null

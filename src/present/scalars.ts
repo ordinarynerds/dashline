@@ -15,9 +15,10 @@ export function duration(d: Duration, opts: WidgetOpts): string {
 
 export function money(d: Money, opts: WidgetOpts): string {
   const term = styleTerm(opts.color ?? 'green', opts)
-  if (opts.variant === 'cents') return paint(`${Math.round(d.usd * 100)}c`, term)
-  if (opts.variant === 'round') return paint(`$${Math.round(d.usd)}`, term)
-  return paint(`$${d.usd.toFixed(2)}`, term)
+  const tail = d.suffix ?? ''
+  if (opts.variant === 'cents') return paint(`${Math.round(d.usd * 100)}c${tail}`, term)
+  if (opts.variant === 'round') return paint(`$${Math.round(d.usd)}${tail}`, term)
+  return paint(`$${d.usd.toFixed(2)}${tail}`, term)
 }
 
 export function delta(d: Delta, opts: WidgetOpts): string {
@@ -31,6 +32,6 @@ export function delta(d: Delta, opts: WidgetOpts): string {
 }
 
 export function flag(d: Flag, opts: WidgetOpts): string | null {
-  if (opts.variant === 'onoff') return paint(`${d.label}:${d.on ? 'on' : 'off'}`, styleTerm(opts.color ?? (d.on ? 'green' : 'dim'), opts))
-  return d.on ? paint(d.label, styleTerm(opts.color ?? 'yellow', opts)) : null
+  if (opts.variant === 'onoff') return paint(`${d.text}:${d.on ? 'on' : 'off'}`, styleTerm(opts.color ?? (d.on ? 'green' : 'dim'), opts))
+  return d.on ? paint(d.text, styleTerm(opts.color ?? 'yellow', opts)) : null
 }
