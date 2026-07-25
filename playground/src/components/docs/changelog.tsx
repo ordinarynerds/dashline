@@ -44,6 +44,9 @@ function ReleaseEntry({ release, latest }: { release: Release; latest: boolean }
                       superscript asterisk rather than a bullet. */}
                   <span aria-hidden className="mt-[0.62em] size-1 shrink-0 rounded-full bg-foreground/30" />
                   <span className="min-w-0">
+                    {item.scope && (
+                      <span className="mr-1.5 font-mono text-xs text-muted-foreground/70">{item.scope}</span>
+                    )}
                     {item.text}
                     {item.url && (
                       <a

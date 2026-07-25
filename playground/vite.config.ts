@@ -17,6 +17,7 @@ const { version } = JSON.parse(readFileSync(path.resolve(__dirname, '../package.
 // asset would need fs.allow widened. Reading it in Node has no such problem.
 interface ChangeItem {
   text: string
+  scope?: string
   sha?: string
   url?: string
 }
@@ -36,6 +37,9 @@ const HEADING = /^## \[?([^\]\s]+)\]?(?:\(([^)]+)\))?\s*\((\d{4}-\d{2}-\d{2})\)/
 const GROUP = /^### (.+)$/
 const ITEM = /^\* (.+)$/
 const TRAILING_SHA = /^(.*?)\s*\(\[([0-9a-f]{6,})\]\(([^)]+)\)\)\s*$/
+// A scoped commit is written `**playground:** description`. Left as-is the asterisks render
+// literally, so the scope is lifted out and the page draws it as a label.
+const SCOPE = /^\*\*(.+?):\*\*\s*(.*)$/
 
 function parseChangelog(md: string): Release[] {
   const releases: Release[] = []
@@ -59,9 +63,15 @@ function parseChangelog(md: string): Release[] {
     const item = ITEM.exec(line)
     if (item && group) {
       const withSha = TRAILING_SHA.exec(item[1]!)
-      group.items.push(
-        withSha ? { text: withSha[1]!, sha: withSha[2]!.slice(0, 7), url: withSha[3]! } : { text: item[1]! },
-      )
+      const entry: ChangeItem = withSha
+        ? { text: withSha[1]!, sha: withSha[2]!.slice(0, 7), url: withSha[3]! }
+        : { text: item[1]! }
+      const scoped = SCOPE.exec(entry.text)
+      if (scoped) {
+        entry.scope = scoped[1]!
+        entry.text = scoped[2]!
+      }
+      group.items.push(entry)
     }
   }
   return releases

@@ -3,6 +3,9 @@
 
 export interface ChangeItem {
   text: string
+  // The conventional-commit scope, lifted out of release-please's `**playground:**` prefix so it
+  // can be drawn as a label instead of rendering its asterisks literally.
+  scope?: string
   sha?: string
   url?: string
 }

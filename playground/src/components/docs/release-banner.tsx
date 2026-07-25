@@ -44,6 +44,7 @@ export function ReleaseBanner({ release, total, className }: { release: Release;
           <div className="font-semibold text-primary">What&apos;s new</div>
           {highlights.map((h) => (
             <div key={h.text} className="min-w-0 break-words">
+              {h.scope && <span className="text-muted-foreground">{h.scope} </span>}
               {h.text}
             </div>
           ))}
