@@ -29,9 +29,6 @@ jobs:
           cache: npm
           cache-dependency-path: playground/package-lock.json
       - run: npm ci
-      # vite.config.ts defaults to the canonical home, dashline.ordinarynerds.com. Pages serves the
-      # same build under a /dashline/ prefix, so it overrides the base here and still points its
-      # canonical link and social cards at the custom domain rather than competing with it.
       - name: Build for GitHub Pages
         run: DASHLINE_SITE=https://dashline.ordinarynerds.com DASHLINE_BASE=/dashline/ npm run build
       - uses: actions/upload-pages-artifact@v3
