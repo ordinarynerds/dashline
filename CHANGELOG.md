@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/ordinarynerds/dashline/compare/v0.10.0...v0.11.0) (2026-07-25)
+
+
+### Features
+
+* eight new widgets and item chrome drawn once per datum ([718a165](https://github.com/ordinarynerds/dashline/commit/718a165428de9d0fe7024d211deadc6862fc81b2))
+* per-item text styles (bold, italic, underline) ([4d208a7](https://github.com/ordinarynerds/dashline/commit/4d208a764f258e8dac21dea14910692cc7584a8f))
+* **playground:** builder rework, docs, and hosting at dashline.ordinarynerds.com ([a7996a2](https://github.com/ordinarynerds/dashline/commit/a7996a2daeaeb9a26da7ede929786454ff48bc2b))
+* **playground:** interactive dashline builder with live preview ([ad0a7ce](https://github.com/ordinarynerds/dashline/commit/ad0a7ce20d51aaa0501a39504d88a3b6af32763e))
+
+
+### Bug Fixes
+
+* apply text styles across the whole percent widget and label icons ([99d6381](https://github.com/ordinarynerds/dashline/commit/99d638144f05fa01d2426551be2ae64377605ecf))
+* **playground:** wire thresholds into preview colors and style widget icons ([dbc1fc7](https://github.com/ordinarynerds/dashline/commit/dbc1fc7babeff3875e89ede2d9737ab54547a11c))
+
 ## [0.10.0](https://github.com/ordinarynerds/dashline/compare/v0.9.0...v0.10.0) (2026-07-24)
 
 
