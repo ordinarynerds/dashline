@@ -3,7 +3,7 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ['playground/**', '.github/workflows/pages.yml']
+    paths: ['playground/**', 'CHANGELOG.md', 'package.json', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
