@@ -89,6 +89,7 @@ export function ClaudePrompt({
   placeholder = "",
   mode = "auto",
   effort = "xhigh",
+  statusLine,
   className,
   inputClassName,
 }: {
@@ -100,6 +101,8 @@ export function ClaudePrompt({
   mode?: ClaudeMode;
   /** Effort chip above the prompt. Pass `false` to hide. */
   effort?: ClaudeEffort | false;
+  /** Status line, drawn between the input and the mode line, where Claude Code puts it. */
+  statusLine?: React.ReactNode;
   className?: string;
   inputClassName?: string;
 }) {
@@ -154,6 +157,8 @@ export function ClaudePrompt({
           style={{ color: FG, caretColor: FG, caretShape: "block" } as React.CSSProperties}
         />
       </div>
+
+      {statusLine ? <div className="mt-1.5 min-w-0">{statusLine}</div> : null}
 
       <div className="mt-1.5 min-w-0 break-words px-1 text-[12px]">
         <span style={{ color: m.color }}>

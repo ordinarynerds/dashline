@@ -144,3 +144,104 @@
     }
   }
 }
+
+/* The documentation prose layer.
+
+   The rest of the app is a scanning surface — 11–14px utility text tuned for dense controls that
+   you read a word of at a time. A docs page is a reading surface, and it was borrowing the chrome
+   scale: every paragraph carried `text-sm text-muted-foreground`, which set body copy at the same
+   size and colour as a form hint. Prose gets its own scale, measure, and ink here so the two
+   systems stop being one.
+
+   Scoped to .doc-prose deliberately. Nothing inherits this — a component dropped inside a docs
+   page keeps its own typography, and the builder never sees it. */
+@layer components {
+    .doc-prose {
+        font-size: 15px;
+        line-height: 1.65;
+        color: color-mix(in oklab, var(--foreground) 72%, transparent);
+    }
+
+    /* The measure lives on the sentences, not on the column.
+
+       Prose and code want different widths and cannot share one: at the width where a paragraph
+       reads well (~80 characters) the default settings.json block was cut off mid-line, and at the
+       width the code needs, lines ran past 100 characters. Capping the text elements alone lets a
+       code block use the full column while the prose stays inside a measure. */
+    .doc-prose > p,
+    .doc-prose > ul,
+    .doc-prose > ol {
+        max-width: 34rem;
+    }
+
+    .doc-prose p + p,
+    .doc-prose p + ul,
+    .doc-prose ul + p {
+        margin-top: 0.85em;
+    }
+
+    .doc-prose strong {
+        color: var(--foreground);
+        font-weight: 600;
+    }
+
+    /* Inline code is the most common span on these pages — settings keys, file paths, flags. As
+       bare foreground text it read as emphasis; the chip makes it read as something you type. */
+    .doc-prose :not(pre) > code {
+        font-family: var(--font-mono);
+        font-size: 0.875em;
+        color: var(--foreground);
+        background: color-mix(in oklab, var(--foreground) 8%, transparent);
+        border-radius: var(--radius-sm);
+        padding: 0.12em 0.36em;
+        white-space: nowrap;
+    }
+
+    .doc-prose ul {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4em;
+    }
+
+    .doc-prose li {
+        padding-left: 1.1em;
+        position: relative;
+    }
+
+    .doc-prose li::before {
+        content: "";
+        position: absolute;
+        left: 0.15em;
+        top: 0.68em;
+        width: 0.28em;
+        height: 0.28em;
+        border-radius: 9999px;
+        background: color-mix(in oklab, var(--foreground) 35%, transparent);
+    }
+}
+
+/* A hairline scrollbar for panes that scroll inside the layout, like the widget palette.
+   Hiding it outright would remove the only hint that there is more below; this keeps the
+   hint while staying quiet enough not to compete with the content. */
+@utility scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 30%, transparent) transparent;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background-color: color-mix(in oklab, var(--muted-foreground) 25%, transparent);
+        border-radius: 9999px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background-color: color-mix(in oklab, var(--muted-foreground) 50%, transparent);
+    }
+}

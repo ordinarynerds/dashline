@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { SYNTAX, colorOf, type ColorName } from '@/lib/dashline'
+import { useClipboard } from '@/hooks/use-clipboard'
 import { cn } from '@/lib/utils'
 
 export type Lang = 'json' | 'jsonc' | 'shell' | 'text'
@@ -79,15 +81,50 @@ function render(code: string, lang: Lang): ReactNode[] {
 }
 
 // A syntax-highlighted code block for the docs, colored from the dashline palette.
-export function CodeBlock({ code, lang = 'json', className }: { code: string; lang?: Lang; className?: string }) {
+//
+// Square, like the terminal and the palette rows: every surface in this app that holds literal
+// machine text is square, and a code block is the most literal of them.
+//
+// `title` names what the block *is* — a file path, or the shell it runs in. On a page where four
+// blocks look alike, "~/.claude/settings.json" is the difference between reading and guessing.
+export function CodeBlock({
+  code,
+  lang = 'json',
+  title,
+  className,
+}: {
+  code: string
+  lang?: Lang
+  title?: string
+  className?: string
+}) {
+  const { copied, copy } = useClipboard()
+
   return (
-    <pre
-      className={cn(
-        'overflow-x-auto rounded-lg border bg-black p-4 font-mono text-[13px] leading-relaxed scrollbar-hide',
-        className,
-      )}
-    >
-      <code>{render(code, lang)}</code>
-    </pre>
+    <div className={cn('group/code relative border border-white/10 bg-black', className)}>
+      {title ? (
+        <div className="border-b border-white/10 px-3 py-1.5 pr-11">
+          <span className="block truncate font-mono text-[11px] text-muted-foreground">{title}</span>
+        </div>
+      ) : null}
+      <pre className="scrollbar-hide overflow-x-auto p-4 font-mono text-[13px] leading-relaxed">
+        <code>{render(code, lang)}</code>
+      </pre>
+      {/* Always present, never loud. Hover-to-reveal is the common pattern and it hides the one
+          control these pages exist to offer — the install commands are here to be taken. */}
+      <button
+        type="button"
+        onClick={() => copy(code)}
+        aria-label={copied ? 'Copied to clipboard' : 'Copy to clipboard'}
+        className={cn(
+          'absolute top-2 right-2 flex size-7 items-center justify-center rounded-sm transition-colors duration-150 ease-[var(--ease-out)]',
+          copied
+            ? 'text-[#35d13b]'
+            : 'text-muted-foreground/60 hover:bg-white/10 hover:text-foreground group-hover/code:text-muted-foreground',
+        )}
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </button>
+    </div>
   )
 }

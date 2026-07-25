@@ -1,6 +1,6 @@
-import { Blocks, BookOpen, Download, Info, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { Blocks, BookOpen, Download, Info, LayoutGrid, Tag, type LucideIcon } from 'lucide-react'
 
-export type SectionKey = 'build' | 'getting-started' | 'install' | 'widgets' | 'about'
+export type SectionKey = 'build' | 'getting-started' | 'install' | 'widgets' | 'about' | 'changelog'
 
 export interface NavItem {
   key: SectionKey
@@ -34,7 +34,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Project',
-    items: [{ key: 'about', label: 'About', path: '/about', icon: Info }],
+    items: [
+      { key: 'changelog', label: 'Changelog', path: '/changelog', icon: Tag },
+      { key: 'about', label: 'About', path: '/about', icon: Info },
+    ],
   },
 ]
 
@@ -46,8 +49,18 @@ export const SECTION_TITLES: Record<SectionKey, string> = {
   'getting-started': 'Getting started',
   install: 'Install',
   widgets: 'Widget reference',
+  changelog: 'Changelog',
   about: 'About dashline',
 }
+
+// Which sidebar group a section sits under, so the header can say where you are without
+// reprinting the page title.
+export const SECTION_GROUP = Object.fromEntries(
+  NAV_SECTIONS.flatMap((s) => s.items.map((i) => [i.key, s.label])),
+) as Record<SectionKey, string>
+
+// The sidebar label for a section — "Widgets", not the page's own "Widget reference".
+export const SECTION_LABELS = Object.fromEntries(NAV.map((n) => [n.key, n.label])) as Record<SectionKey, string>
 
 // The section key for a pathname like "/install" -> "install". Defaults to getting-started.
 export function sectionFromPath(pathname: string): SectionKey {

@@ -2,6 +2,7 @@ import { useEffect, useReducer } from 'react'
 import {
   defaultLines,
   defaultSettings,
+  newItem,
   type ItemOption,
   type Line,
   type Settings,
@@ -49,9 +50,14 @@ function reducer(state: State, action: Action): State {
       return { ...state, settings: { ...state.settings, [action.key]: !state.settings[action.key] } }
     case 'separator':
       return { ...state, settings: { ...state.settings, separator: action.value } }
+    // A dial fires on every pointermove, so most of these carry the value already held.
+    // Returning the same state keeps the context identity stable and skips a re-render of
+    // the whole preview plus a compress-and-write of the share URL.
     case 'margin':
+      if (state.settings.margin === action.value) return state
       return { ...state, settings: { ...state.settings, margin: action.value } }
     case 'threshold':
+      if (state.settings[action.key] === action.value) return state
       return { ...state, settings: { ...state.settings, [action.key]: action.value } }
     case 'addLine':
       return { ...state, lines: [...state.lines, { left: [], center: [], right: [] }] }
@@ -85,7 +91,7 @@ function reducer(state: State, action: Action): State {
     }
     case 'insertWidget': {
       const lines = cloneLines(state.lines)
-      lines[action.to.li]?.[action.to.z].splice(action.to.index, 0, { widget: action.widget })
+      lines[action.to.li]?.[action.to.z].splice(action.to.index, 0, newItem(action.widget))
       return { ...state, lines }
     }
     case 'moveItem': {

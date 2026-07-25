@@ -6,8 +6,14 @@ window on the left and plan usage on the right. Change it by editing a list of f
 ![Dashline in a Claude Code terminal across its ok, high, and compact states](assets/dashline.png)
 
 <p align="center">
-  <a href="https://x.com/_ordinarynerds"><img src="https://img.shields.io/badge/Follow%20us%20on%20X-%40__ordinarynerds-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow @_ordinarynerds on X"></a>
+  <a href="https://dashline.ordinarynerds.com/build"><img src="https://img.shields.io/badge/Build%20yours%20in%20the%20browser-%E2%86%92-FF6B4A?style=for-the-badge&labelColor=1C1C20" alt="Open the dashline builder"></a>
+  <a href="https://github.com/ordinarynerds/dashline/actions/workflows/ci.yml"><img src="https://github.com/ordinarynerds/dashline/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://x.com/_ordinarynerds"><img src="https://img.shields.io/badge/%40__ordinarynerds-000000?style=for-the-badge&logo=x&logoColor=white" alt="Follow @_ordinarynerds on X"></a>
 </p>
+
+**[Open the builder →](https://dashline.ordinarynerds.com/build)** — drag widgets into zones,
+set colors and thresholds, and copy the config straight into `settings.json`. Nothing to install to
+try it, and the preview renders byte-for-byte what your terminal prints.
 
 ## Why
 

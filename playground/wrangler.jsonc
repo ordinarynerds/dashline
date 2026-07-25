@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dashline",
+  "compatibility_date": "2026-07-25",
+
+  // Static assets only — there is no Worker script. The playground is a client-side SPA, so
+  // Cloudflare serves the built files directly and never boots an isolate.
+  //
+  // Hosted here rather than on GitHub Pages because ordinarynerds.com is already a Worker on this
+  // account: same zone, same dashboard, and the custom domain below provisions its own DNS record
+  // and certificate instead of pointing a CNAME at a second provider.
+  "assets": {
+    "directory": "./dist",
+    // TanStack Router owns the routes, so any unknown path must return index.html with a 200
+    // rather than a 404. This replaces the `cp dist/index.html dist/404.html` trick that GitHub
+    // Pages needed.
+    "not_found_handling": "single-page-application"
+  },
+
+  "routes": [
+    {
+      "pattern": "dashline.ordinarynerds.com",
+      "custom_domain": true
+    }
+  ]
+}

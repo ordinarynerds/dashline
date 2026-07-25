@@ -1,11 +1,21 @@
 import type { ReactNode } from 'react'
-import { THEME_NAMES, type ThresholdKey } from '@/lib/dashline'
+import {
+  THEME_NAMES,
+  colorOf,
+  effectiveThreshold,
+  previewScenario,
+  resolveThresholds,
+  type ColorName,
+  type ThresholdKey,
+} from '@/lib/dashline'
+import { costOf } from '@/lib/cost'
+import { cn } from '@/lib/utils'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DialSlider } from '@/components/ui/dial-slider'
+import { PREVIEW_TYPE, WidgetTokens } from '@/components/playground/widget-tokens'
 import { usePlaygroundContext } from '@/components/playground/context'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -29,16 +39,66 @@ function Field({ label, hint, control }: { label: string; hint?: string; control
   )
 }
 
-function ThresholdField({ label, k }: { label: string; k: ThresholdKey }) {
+// The named colors a theme actually remaps, in the order they read best as a strip.
+const THEME_PREVIEW: ColorName[] = ['red', 'yellow', 'green', 'cyan', 'blue', 'magenta']
+
+// A theme is a palette, so the palette is the label. The name alone tells you nothing about
+// what picking it will do.
+function ThemeChoice({ theme, active, onSelect }: { theme: string; active: boolean; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={active}
+      className={cn(
+        'flex flex-col gap-1.5 rounded-md border px-2 py-1.5 text-left transition-colors',
+        active ? 'border-foreground bg-accent' : 'border-border hover:bg-accent/50',
+      )}
+    >
+      {/* A hairline of each colour rather than a block. Six saturated swatches × six themes was
+          the brightest region of the whole screen, and none of it carries state — it was
+          out-shouting the status line it exists to describe. */}
+      <span className="flex gap-px overflow-hidden rounded-[2px]">
+        {THEME_PREVIEW.map((c) => (
+          <span key={c} className="h-1.5 flex-1" style={{ background: colorOf(c, theme) }} />
+        ))}
+      </span>
+      <span className={cn('text-xs', active ? 'text-foreground' : 'text-muted-foreground')}>{theme || 'none'}</span>
+    </button>
+  )
+}
+
+// The strip under a control, showing the widget it governs rendered at the value being set.
+// A threshold is a colour boundary, so the only way to explain it is to show the colour.
+function Preview({ children }: { children: ReactNode }) {
+  return (
+    <div className={cn(PREVIEW_TYPE, 'overflow-hidden border border-white/10 bg-black px-2 py-1')}>
+      {children}
+    </div>
+  )
+}
+
+// A threshold moves a widget from green to yellow to red. Drawing that widget *at* the
+// threshold shows exactly where the boundary lands.
+function ThresholdField({ label, k, widget }: { label: string; k: ThresholdKey; widget: 'context' | 'session' }) {
   const { settings, setThreshold } = usePlaygroundContext()
   const value = settings[k]
+  const scenario = previewScenario(effectiveThreshold(settings, k))
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-normal">{label}</Label>
-        <span className="font-mono text-xs text-muted-foreground">{value > 0 ? `${value}%` : 'default'}</span>
-      </div>
-      <Slider value={[value]} min={0} max={100} step={5} onValueChange={([v]) => setThreshold(k, v)} />
+    <div className="flex flex-col gap-1.5">
+      <DialSlider
+        label={label}
+        value={value}
+        onChange={(v) => setThreshold(k, v)}
+        min={0}
+        max={100}
+        step={5}
+        unit="%"
+      />
+      <Preview>
+        <WidgetTokens id={widget} scenario={scenario} thresholds={resolveThresholds(settings)} theme={settings.theme} />
+      </Preview>
     </div>
   )
 }
@@ -51,23 +111,14 @@ export function ConfigPanel() {
   return (
     <div className="flex flex-col gap-7">
       <Section title="Appearance">
-        <Field
-          label="Theme"
-          control={
-            <Select value={settings.theme || 'none'} onValueChange={(v) => setTheme(v === 'none' ? '' : v)}>
-              <SelectTrigger size="sm" className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {THEME_NAMES.map((t) => (
-                  <SelectItem key={t || 'none'} value={t || 'none'}>
-                    {t || 'none'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-normal">Theme</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {THEME_NAMES.map((t) => (
+              <ThemeChoice key={t || 'none'} theme={t} active={settings.theme === t} onSelect={() => setTheme(t)} />
+            ))}
+          </div>
+        </div>
         <Field label="Powerline" hint="Segmented backgrounds" control={<Switch checked={settings.powerline} onCheckedChange={() => toggle('powerline')} />} />
         <Field label="Icons" hint="Nerd Font glyphs" control={<Switch checked={settings.icons} onCheckedChange={() => toggle('icons')} />} />
       </Section>
@@ -80,28 +131,75 @@ export function ConfigPanel() {
           hint="Between widgets"
           control={<Input value={settings.separator} onChange={(e) => setSeparator(e.target.value)} placeholder=" · " className="h-8 w-24 font-mono" />}
         />
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-normal">Margin</Label>
-            <span className="font-mono text-xs text-muted-foreground">{settings.margin}</span>
-          </div>
-          <Slider value={[settings.margin]} min={0} max={8} step={1} onValueChange={([v]) => setMargin(v)} />
+        <div className="flex flex-col gap-1.5">
+          <DialSlider label="Margin" value={settings.margin} onChange={setMargin} min={0} max={8} step={1} unit="col" />
+          {/* Margin is columns kept free at the right edge, so the preview shows the right
+              zone pushed off the edge by exactly that many characters. */}
+          <Preview>
+            <span className="flex justify-end">
+              <WidgetTokens id="weekly" theme={settings.theme} />
+              <span
+                aria-hidden
+                className="ml-px shrink-0 bg-[repeating-linear-gradient(45deg,rgba(255,255,255,0.18)_0_2px,transparent_2px_4px)]"
+                style={{ width: `${settings.margin}ch` }}
+              />
+            </span>
+          </Preview>
         </div>
       </Section>
 
       <Separator />
 
       <Section title="Context thresholds">
-        <ThresholdField label="Warning" k="contextWarningAt" />
-        <ThresholdField label="Critical" k="contextCriticalAt" />
+        <ThresholdField label="Warning" k="contextWarningAt" widget="context" />
+        <ThresholdField label="Critical" k="contextCriticalAt" widget="context" />
       </Section>
 
       <Separator />
 
       <Section title="Usage thresholds">
-        <ThresholdField label="Warning" k="usageWarningAt" />
-        <ThresholdField label="Critical" k="usageCriticalAt" />
+        <ThresholdField label="Warning" k="usageWarningAt" widget="session" />
+        <ThresholdField label="Critical" k="usageCriticalAt" widget="session" />
       </Section>
+
+      <Separator />
+
+      <CostSection />
     </div>
+  )
+}
+
+// What the current line costs to draw. dashline gates its subprocesses on what the placed
+// widgets ask for, and the gating is not visible in the config: three git widgets can share one
+// read, while a fourth adds a second. This is the screen where those choices get made.
+function CostSection() {
+  const { lines } = usePlaygroundContext()
+  const cost = costOf(lines)
+  const total = cost.git + cost.commands
+
+  return (
+    <Section title="Per refresh">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-2xl leading-none tabular-nums">{total}</span>
+          <span className="text-muted-foreground text-xs">
+            {total === 1 ? 'subprocess' : 'subprocesses'}
+            {total === 0 ? ' — nothing is spawned' : ''}
+          </span>
+        </div>
+        {cost.detail.length > 0 && (
+          <ul className="text-muted-foreground/70 flex flex-col gap-1 text-[11px] leading-snug">
+            {cost.detail.map((d) => (
+              <li key={d} className="flex gap-1.5">
+                <span aria-hidden className="text-muted-foreground/40">
+                  ·
+                </span>
+                <span>{d}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Section>
   )
 }

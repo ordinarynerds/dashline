@@ -13,13 +13,15 @@ export function PreviewPanel() {
   const setIndex = usePreviewStore((s) => s.setIndex)
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-sm font-semibold">Preview</h2>
-        <p className="text-xs text-muted-foreground">Sample data, below Claude Code's prompt</p>
-      </div>
+    // No heading here. The page header already says "Build your status line"; repeating it as
+    // "Status line" 60px below cost 44px of vertical space and told nobody anything. The hint
+    // stays, because the drag direction is the one thing the layout does not explain itself.
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <p className="text-muted-foreground/70 text-xs">
+        Drag widgets up from the library onto the line, or click one to add it. Click a placed widget to change it.
+      </p>
 
-      <Tabs defaultValue="preview" className="h-[400px] gap-0 overflow-hidden rounded-xl border">
+      <Tabs defaultValue="preview" className="min-h-[420px] flex-1 gap-0 overflow-hidden rounded-xl border lg:min-h-0">
         <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-2 py-1.5">
           <TabsList variant="line" className="h-7">
             <TabsTrigger value="preview" className="gap-1.5 px-2">

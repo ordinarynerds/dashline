@@ -3,8 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Safari and iOS ignore the SVG icon; without this they fall back to a screenshot of the
+         page, which at home-screen size is unreadable. Vite rewrites both paths for the base. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dashline playground</title>
+    <meta name="theme-color" content="#0c0c0e" />
+
+    <title>dashline — a status line for Claude Code</title>
+    <meta
+      name="description"
+      content="Build a Claude Code status line in the browser and copy it into settings.json. Zero dependencies, one 43 KB file, and a preview that renders byte-for-byte what your terminal prints."
+    />
+    <link rel="canonical" href="%SITE%/" />
+
+    <!-- Social cards. Sharing a built config is a first-class feature of this app, so a shared
+         link has to arrive as something rather than as a bare URL. og:image must be absolute —
+         relative paths are ignored by every unfurler. %SITE% is substituted at build time from the
+         single constant in vite.config.ts, so moving to a custom domain is one edit. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="dashline" />
+    <meta property="og:url" content="%SITE%/" />
+    <meta property="og:title" content="dashline — a status line for Claude Code" />
+    <meta
+      property="og:description"
+      content="Build a Claude Code status line in the browser and copy it into settings.json. Zero dependencies, and a preview that renders byte-for-byte what your terminal prints."
+    />
+    <meta property="og:image" content="%SITE%/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="dashline: a terminal status line showing branch, model, context percentage with a bar, and session and weekly usage."
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@_ordinarynerds" />
+    <meta name="twitter:title" content="dashline — a status line for Claude Code" />
+    <meta
+      name="twitter:description"
+      content="Build a Claude Code status line in the browser and copy it into settings.json. Zero dependencies, and a preview that renders byte-for-byte what your terminal prints."
+    />
+    <meta name="twitter:image" content="%SITE%/og.png" />
   </head>
   <body>
     <div id="root"></div>

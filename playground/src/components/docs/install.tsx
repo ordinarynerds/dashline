@@ -19,30 +19,44 @@ export function Install() {
     <DocPage
       title="Install"
       lead="A Claude Code plugin cannot set the main status line on its own. Both routes below end with settings.json pointing at dashline; the plugin route does it for you."
+      next={{ to: '/build', title: 'Build your status line', hint: 'Drag widgets into zones and copy the config' }}
     >
-      <DocSection title="As a plugin (recommended)">
-        <CodeBlock code={PLUGIN} lang="shell" />
+      {/* The recommendation was a parenthetical in a heading, and the two routes were rendered
+          identically — nothing on screen said which one to take. Marking it costs one badge and
+          decides the page for most readers. */}
+      <DocSection title="As a plugin">
+        <p>
+          <Recommended /> Three commands in Claude Code. The last one writes <code>settings.json</code> for you.
+        </p>
+        <CodeBlock code={PLUGIN} lang="shell" title="Claude Code" />
       </DocSection>
 
       <DocSection title="Manual">
-        <CodeBlock code={MANUAL} lang="shell" />
-        <p className="text-sm text-muted-foreground">
-          The installer backs up <code className="text-foreground">settings.json</code>, points{' '}
-          <code className="text-foreground">statusLine</code> at <code className="text-foreground">node dist/dashline.js</code>, and leaves
-          a <code className="text-foreground">settings.json.bak-dashline-*</code> file. Undo with{' '}
-          <code className="text-foreground">./scripts/install.sh --uninstall</code>. Start a new session or run{' '}
-          <code className="text-foreground">/statusline</code> to see it. Requires Node 18+.
+        <p>Clone, build, and run the installer yourself. Requires Node 18+.</p>
+        <CodeBlock code={MANUAL} lang="shell" title="Terminal" />
+        <p>
+          The installer backs up <code>settings.json</code>, points <code>statusLine</code> at <code>node dist/dashline.js</code>, and
+          leaves a <code>settings.json.bak-dashline-*</code> file. Undo with <code>./scripts/install.sh --uninstall</code>. Start a
+          new session or run <code>/statusline</code> to see it.
         </p>
       </DocSection>
 
       <DocSection title="Updating">
-        <p className="text-sm text-muted-foreground">
-          Plugin: enable auto-update in <code className="text-foreground">/plugin</code> (Marketplaces tab), or pull on demand:
+        <p>
+          On the plugin route, enable auto-update in <code>/plugin</code> (Marketplaces tab), or pull on demand:
         </p>
-        <CodeBlock code={UPDATE_PLUGIN} lang="shell" />
-        <p className="text-sm text-muted-foreground">Manual:</p>
-        <CodeBlock code={UPDATE_MANUAL} lang="shell" />
+        <CodeBlock code={UPDATE_PLUGIN} lang="shell" title="Claude Code" />
+        <p>On the manual route:</p>
+        <CodeBlock code={UPDATE_MANUAL} lang="shell" title="Terminal" />
       </DocSection>
     </DocPage>
+  )
+}
+
+function Recommended() {
+  return (
+    <span className="mr-1.5 inline-flex -translate-y-px items-center rounded-sm bg-primary/15 px-1.5 py-0.5 align-middle text-[10px] font-semibold tracking-[0.1em] text-primary uppercase">
+      Recommended
+    </span>
   )
 }

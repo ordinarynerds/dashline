@@ -1,16 +1,16 @@
-import { GripVertical, X } from 'lucide-react'
-import { Draggable } from '@hello-pangea/dnd'
+import type { ReactNode } from 'react'
 import {
   BAR_STYLES,
   COLOR_CHOICES,
   COLORS,
+  COMMAND_ITEM,
   ICON_CHOICES,
+  TEXT_ITEM,
   TEXT_STYLES,
-  VARIANTS,
-  WIDGETS,
   barSample,
-  colorOf,
+  isLabelKind,
   isPercent,
+  variantsFor,
   type BarStyle,
   type Item,
   type TextStyle,
@@ -25,7 +25,6 @@ import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { WidgetTokens } from './widget-tokens'
 import { PreviewSelect, type PreviewOption } from './preview-select'
-import { placedDraggableId } from './dnd'
 import { usePlaygroundContext } from './context'
 
 function IconPicker({ value, onChange }: { value?: string; onChange: (icon?: string) => void }) {
@@ -123,56 +122,87 @@ function ColorSwatches({ value, onChange }: { value?: string; onChange: (c: Item
   )
 }
 
-function ItemOptions({ li, z, ii, item }: { li: number; z: ZoneKey; ii: number; item: Item }) {
+// Fixed for the lifetime of the app: built once rather than per item, per render.
+const BAR_OPTIONS: PreviewOption[] = [
+  { value: 'default', label: 'default', preview: barSample('blocks') },
+  ...BAR_STYLES.map((b) => ({ value: b, label: b, preview: barSample(b) })),
+]
+
+// Wraps the chip itself as the popover trigger: at this size there is no room for a
+// separate control, and clicking the thing you want to change is the obvious gesture.
+export function ItemOptions({ li, z, ii, item, children }: { li: number; z: ZoneKey; ii: number; item: Item; children: ReactNode }) {
   const { setOption, settings } = usePlaygroundContext()
-  const swatch = item.color ? colorOf(item.color, settings.theme) : undefined
+  // Bar style and the trend arrow are percent-only; variants are offered by any widget
+  // that names some, which now includes the working-tree and delta widgets.
   const percent = isPercent(item.widget)
+  const variants = variantsFor(item.widget)
+  // dashline prints a command's output verbatim, so none of the presentation options
+  // reach it. Offering them would promise something the terminal will not do.
+  const isCommand = item.widget === COMMAND_ITEM
+  const isText = item.widget === TEXT_ITEM
 
   const variantOptions: PreviewOption[] = [
     { value: 'default', label: 'default', preview: <WidgetTokens id={item.widget} item={{ widget: item.widget }} theme={settings.theme} /> },
-    ...VARIANTS.map((v) => ({
+    ...variants.map((v) => ({
       value: v,
       label: v,
       preview: <WidgetTokens id={item.widget} item={{ widget: item.widget, variant: v }} theme={settings.theme} />,
     })),
   ]
 
-  const barOptions: PreviewOption[] = [
-    { value: 'default', label: 'default', preview: barSample('blocks') },
-    ...BAR_STYLES.map((b) => ({ value: b, label: b, preview: barSample(b) })),
-  ]
-
   return (
     <Popover>
-      <PopoverTrigger
-        aria-label="widget options"
-        className="size-4 shrink-0 rounded-full border border-border/70 transition-transform active:scale-90"
-        style={{ background: swatch ?? 'conic-gradient(#FF5555,#E5B93A,#35D13B,#4EC9D6,#6AA6FF,#C678DD,#FF5555)' }}
-      />
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="start" className="flex w-72 flex-col gap-4 p-3">
-        <ColorSwatches value={item.color} onChange={(c) => setOption(li, z, ii, { color: c })} />
+        {(isText || isCommand) && (
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-normal text-muted-foreground">{isText ? 'Text' : 'Command'}</Label>
+            <Input
+              value={item.text ?? ''}
+              onChange={(e) => setOption(li, z, ii, { text: e.target.value })}
+              placeholder={isText ? 'text' : 'my-tool --short'}
+              className="h-7 font-mono text-xs"
+            />
+            {isCommand && (
+              <p className="text-[11px] leading-snug text-muted-foreground/70">
+                Runs in your shell on each refresh, under a 2s timeout. Its first line of output is drawn as-is, so
+                colors and variants do not apply. Only commands in your own settings.json run.
+              </p>
+            )}
+          </div>
+        )}
 
-        <Separator />
+        {!isCommand && (
+          <>
+            <ColorSwatches value={item.color} onChange={(c) => setOption(li, z, ii, { color: c })} />
 
-        <div className="flex items-center justify-between gap-3">
-          <Label className="text-xs font-normal text-muted-foreground">Label</Label>
-          <Input
-            value={item.label ?? ''}
-            onChange={(e) => setOption(li, z, ii, { label: e.target.value || undefined })}
-            placeholder="none"
-            className="h-7 w-32 text-xs"
-          />
-        </div>
+            <Separator />
+          </>
+        )}
 
-        <Separator />
+        {!isText && !isCommand && (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-xs font-normal text-muted-foreground">Label</Label>
+              <Input
+                value={item.label ?? ''}
+                onChange={(e) => setOption(li, z, ii, { label: e.target.value || undefined })}
+                placeholder="none"
+                className="h-7 w-32 text-xs"
+              />
+            </div>
 
-        <IconPicker value={item.icon} onChange={(icon) => setOption(li, z, ii, { icon })} />
+            <Separator />
 
-        <Separator />
+            <IconPicker value={item.icon} onChange={(icon) => setOption(li, z, ii, { icon })} />
 
-        <StyleToggles item={item} onToggle={(key) => setOption(li, z, ii, { [key]: !item[key] })} />
+            <Separator />
 
-        {percent && (
+            <StyleToggles item={item} onToggle={(key) => setOption(li, z, ii, { [key]: !item[key] })} />
+          </>
+        )}
+
+        {variants.length > 0 && (
           <>
             <Separator />
             <PreviewSelect
@@ -181,66 +211,49 @@ function ItemOptions({ li, z, ii, item }: { li: number; z: ZoneKey; ii: number; 
               options={variantOptions}
               onChange={(v) => setOption(li, z, ii, { variant: v === 'default' ? undefined : (v as Variant) })}
             />
-            <PreviewSelect
-              label="Bar style"
-              value={item.bar ?? 'default'}
-              options={barOptions}
-              onChange={(v) => setOption(li, z, ii, { bar: v === 'default' ? undefined : (v as BarStyle) })}
-            />
-            <div className="flex items-center justify-between gap-3">
-              <Label className="text-xs font-normal text-muted-foreground">Trend arrow</Label>
-              <Switch checked={!!item.trend} onCheckedChange={(v) => setOption(li, z, ii, { trend: v || undefined })} />
-            </div>
           </>
+        )}
+
+        {/* Only label.ts clips text, so only the widgets it presents can be truncated. */}
+        {isLabelKind(item.widget) && (
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-col">
+              <Label className="text-muted-foreground text-xs font-normal">Truncate</Label>
+              <span className="text-muted-foreground/60 text-[11px]">Max columns</span>
+            </div>
+            <Input
+              type="number"
+              min={1}
+              value={item.truncate ?? ''}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setOption(li, z, ii, { truncate: e.target.value && n > 0 ? n : undefined })
+              }}
+              placeholder="off"
+              className="h-7 w-20 text-xs"
+            />
+          </div>
+        )}
+
+        {percent && (
+          <PreviewSelect
+            label="Bar style"
+            value={item.bar ?? 'default'}
+            options={BAR_OPTIONS}
+            onChange={(v) => setOption(li, z, ii, { bar: v === 'default' ? undefined : (v as BarStyle) })}
+          />
+        )}
+
+        {/* Not every percent widget: the arrow compares against session history, and history
+            records only the context percentage. There is no series for session or weekly, so
+            offering the toggle there would be a switch that does nothing. */}
+        {item.widget === 'context' && (
+          <div className="flex items-center justify-between gap-3">
+            <Label className="text-muted-foreground text-xs font-normal">Trend arrow</Label>
+            <Switch checked={!!item.trend} onCheckedChange={(v) => setOption(li, z, ii, { trend: v || undefined })} />
+          </div>
         )}
       </PopoverContent>
     </Popover>
-  )
-}
-
-// A widget placed in a zone: drag it by the grip to reorder, move to another zone, or move to
-// another line. The options popover and remove control stay clickable (only the grip drags).
-export function PlacedItem({ li, z, ii, item }: { li: number; z: ZoneKey; ii: number; item: Item }) {
-  const { removeItem, settings } = usePlaygroundContext()
-  // Unknown names (e.g. a shell command typed into the Code editor) have no widget preview, but
-  // still render as a removable chip showing the raw name so they never become stuck in state.
-  const known = !!WIDGETS[item.widget]
-
-  return (
-    <Draggable draggableId={placedDraggableId(li, z, ii)} index={ii}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className={cn(
-            'flex h-9 items-center gap-2 rounded-lg border bg-secondary pr-1.5 pl-1.5',
-            snapshot.isDragging ? 'border-primary/50 shadow-lg shadow-black/20' : 'border-border',
-          )}
-        >
-          <span
-            {...provided.dragHandleProps}
-            aria-label={`drag ${item.widget}`}
-            className="grid size-6 shrink-0 cursor-grab place-items-center rounded-md text-muted-foreground/50 outline-none transition-colors hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
-          >
-            <GripVertical className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1 overflow-hidden font-mono text-[13px] whitespace-pre">
-            {known ? (
-              <WidgetTokens id={item.widget} item={item} theme={settings.theme} icons={settings.icons} />
-            ) : (
-              <span className="text-muted-foreground">{item.widget || '(empty)'}</span>
-            )}
-          </span>
-          <ItemOptions li={li} z={z} ii={ii} item={item} />
-          <button
-            className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-destructive"
-            onClick={() => removeItem(li, z, ii)}
-            aria-label={`remove ${item.widget}`}
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
-      )}
-    </Draggable>
   )
 }

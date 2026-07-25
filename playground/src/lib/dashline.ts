@@ -52,35 +52,124 @@ export const THEMES: Record<string, Partial<Record<ColorName, string>>> = {
   dracula: { red: '#FF5555', green: '#50FA7B', yellow: '#F1FA8C', blue: '#6272A4', magenta: '#FF79C6', cyan: '#8BE9FD', gray: '#6272A4' },
   gruvbox: { red: '#CC241D', green: '#98971A', yellow: '#D79921', blue: '#458588', magenta: '#B16286', cyan: '#689D6A', gray: '#928374' },
   catppuccin: { red: '#F38BA8', green: '#A6E3A1', yellow: '#F9E2AF', blue: '#89B4FA', magenta: '#CBA6F7', cyan: '#94E2D5', gray: '#6C7086' },
+  ordinarynerds: { red: '#FF6B4A', green: '#3FCF8E', yellow: '#F2B441', blue: '#5AA9F0', magenta: '#C678DD', cyan: '#4EC9D6', gray: '#6B6B70' },
 }
 
-export const THEME_NAMES = ['', 'nord', 'dracula', 'gruvbox', 'catppuccin']
+export const THEME_NAMES = ['', 'nord', 'dracula', 'gruvbox', 'catppuccin', 'ordinarynerds']
 
-// Preview glyphs. The terminal uses Nerd Font icons; these are monochrome Unicode stand-ins so
-// the icons toggle has a visible effect in the browser. Every widget has one.
+// Icons a widget carries in its own datum rather than taking from the icons setting, so these
+// draw whether icons are on or off; the Nerd Font glyph below replaces them when it is on. The
+// colour is the datum's `iconColor`, dim unless the widget names another.
+export const BUILTIN_ICONS: Record<string, { glyph: string; color: ColorName }> = {
+  branch: { glyph: '⎇', color: 'dim' },
+  worktree: { glyph: '⌂', color: 'yellow' },
+}
+
+// The label a widget draws in front of itself when nothing else is asked for. Part of its full
+// presentation, so a variant — which asks for one piece in isolation — drops it.
+const DEFAULT_LABELS: Record<string, string> = {
+  session: 'session',
+  weekly: 'All',
+}
+
+// Preview glyphs, applied by the icons setting. Every widget renders one now that present()
+// owns the icon, so the only constraint is that these keys stay in step with the ICONS table
+// in src/render.ts — a glyph here for a widget that table omits would promise a status line
+// the terminal does not draw.
 export const ICONS: Record<string, string> = {
   branch: '⎇',
   model: '◆',
-  context: '▤',
-  session: '⧗',
-  weekly: '∑',
-  cost: '$',
-  duration: '◷',
-  lines: '±',
+  cwd: '▸',
+  repo: '⌗',
   pr: '⌥',
   review: '✓',
   worktree: '⌂',
-  cwd: '▸',
-  repo: '⌗',
-  effort: '◉',
-  name: '✦',
-  output: '⎔',
   version: '⎋',
-  burn: '⏣',
-  fast: '»',
-  thinking: '✲',
-  vim: '⌨',
-  agent: '⟐',
+  name: '✦',
+  effort: '◉',
+  output: '⎔',
+  cost: '$',
+  dirty: '✱',
+  sync: '⇅',
+  sha: '◈',
+  stash: '⚑',
+  host: '⌘',
+  time: '◷',
+}
+
+// Widgets whose datum is a plain piece of text, and so pass through present/label.ts. Only
+// those take its text transforms — `basename`, `upper`, `lower` and `truncate` — because only
+// those have text to transform.
+const LABEL_KIND = new Set([
+  'branch', 'cwd', 'worktree', 'dirty', 'sync', 'sha', 'stash', 'pr', 'review', 'repo',
+  'model', 'effort', 'vim', 'agent', 'burn', 'name', 'output', 'version', 'host', 'time',
+])
+
+export const isLabelKind = (id: string): boolean => LABEL_KIND.has(id)
+
+// Transforms label.ts applies to the drawn text, after the widget's own variant has decided
+// what that text is. They share the one `variant` slot: the widget checks it first, and
+// anything it does not claim falls through to here.
+export const TEXT_VARIANTS = ['basename', 'upper', 'lower'] as const
+
+function transform(text: string, variant: string | undefined): string {
+  if (variant === 'basename') return text.slice(text.replace(/\/+$/, '').lastIndexOf('/') + 1)
+  if (variant === 'upper') return text.toUpperCase()
+  if (variant === 'lower') return text.toLowerCase()
+  return text
+}
+
+// util/width.ts clip: keep whole code points and spend one column on the ellipsis.
+function clip(text: string, width: number): string {
+  if (width <= 0) return ''
+  const cps = [...text]
+  if (cps.length <= width) return text
+  return `${cps.slice(0, Math.max(0, width - 1)).join('')}…`
+}
+
+// How many columns a line needs, counted the way render.ts composes one: every item's chrome
+// and body, with a separator between items in a zone.
+//
+// Counted from the text rather than measured from the DOM, because the DOM carries editing
+// chrome the terminal never prints — each item's remove badge is positioned past its right
+// edge, which inflates the element's scroll width and would report a line as clipped when it
+// fits perfectly well.
+export function lineColumns(line: Line, settings: Settings, thresholds: PctThresholds, scenario?: Scenario): number {
+  const sep = [...(settings.separator || ' · ')].length
+  let total = 0
+  for (const z of ZONES) {
+    line[z].forEach((item, i) => {
+      if (i > 0) total += sep
+      const c = chromeOf(item, settings.icons)
+      // Both are drawn with a trailing space.
+      if (c.icon) total += [...c.icon].length + 1
+      if (c.label) total += [...c.label].length + 1
+      total += [...widgetParts(item, scenario, thresholds).map(([t]) => t).join('')].length
+    })
+  }
+  return total
+}
+
+// The trimmings drawn around a value: a glyph in front, then a word in front. present() applies
+// both for every datum kind, so unlike the value itself they do not vary by widget type.
+export interface Chrome {
+  icon?: string
+  iconColor: ColorName
+  label?: string
+}
+
+export function chromeOf(item: Item, icons: boolean): Chrome {
+  const builtin = BUILTIN_ICONS[item.widget]
+  // Explicit item icon, then the setting's glyph, then whatever the widget carries itself.
+  const icon = item.icon || (icons ? ICONS[item.widget] : undefined) || builtin?.glyph
+  return {
+    icon,
+    // Only a datum's own icon has a colour of its own; the other two go dim.
+    iconColor: icon && icon === builtin?.glyph ? builtin.color : 'dim',
+    // A label named in config always wins, and always survives a variant. The widget's own is
+    // part of the full presentation a variant opts out of.
+    label: item.label ?? (item.variant ? undefined : DEFAULT_LABELS[item.widget]),
+  }
 }
 
 // Monochrome glyphs offered as a per-item icon in the builder. These render in the browser and
@@ -88,35 +177,106 @@ export const ICONS: Record<string, string> = {
 // glyph; this is a friendly starting set.
 export const ICON_CHOICES: string[] = [
   '⎇', '◆', '●', '★', '⚑', '⌂', '⌘', '⌥', '✦', '✳', '◷', '⧗', '∑', '±', '»', '→', '↑', '↓', '⌗', '⎔', '⎋', '⏣', '⟐', '◉', '▸', '✓', '⊙',
+  '✱', '⇅', '◈', '∆', '≡',
 ]
 
 export type Part = [string, ColorName]
 
-export type CategoryKey = 'git' | 'model' | 'usage' | 'session'
+export type CategoryKey = 'git' | 'model' | 'usage' | 'session' | 'custom'
 export const CATEGORIES: { key: CategoryKey; label: string }[] = [
   { key: 'git', label: 'Git & repo' },
   { key: 'model', label: 'Model & mode' },
   { key: 'usage', label: 'Usage & cost' },
   { key: 'session', label: 'Session' },
+  { key: 'custom', label: 'Custom' },
 ]
+
+// The two config items that are not widgets: literal text, and a shell command whose
+// first line of output is drawn. They ride through the builder under reserved ids that
+// can never collide with a widget name, and are translated back on the way out.
+export const TEXT_ITEM = '$text'
+export const COMMAND_ITEM = '$command'
+export const isCustom = (widget: string): boolean => widget === TEXT_ITEM || widget === COMMAND_ITEM
 
 export interface WidgetMeta {
   name: string
   desc: string
   category: CategoryKey
   parts: Part[]
+  // Variants offered by a non-percent widget, each with the parts it draws. Percent
+  // widgets are driven by PERCENT and percentParts instead, so they leave this unset.
+  variants?: Record<string, Part[]>
 }
+
+// Reused by `lines` and `diff`, which are both delta-typed and share the presentations.
+const DELTA_VARIANTS = (added: number, removed: number): Record<string, Part[]> => ({
+  pair: [[`+${added}`, 'green'], [` -${removed}`, 'red']],
+  sum: [[`+${added - removed}`, 'green']],
+  added: [[`+${added}`, 'green']],
+})
 
 export const WIDGETS: Record<string, WidgetMeta> = {
   branch: { name: 'git branch', desc: 'Current git branch', category: 'git', parts: [['main', 'cyan']] },
-  repo: { name: 'repo name', desc: 'Repository name', category: 'git', parts: [['dashline', 'dim']] },
+  repo: {
+    name: 'repo name',
+    desc: 'Repository name, owner, or host',
+    category: 'git',
+    parts: [['dashline', 'dim']],
+    variants: {
+      full: [['ordinarynerds/dashline', 'dim']],
+      owner: [['ordinarynerds', 'dim']],
+      host: [['github.com', 'dim']],
+    },
+  },
   cwd: { name: 'working dir', desc: 'Working directory path', category: 'git', parts: [['~/Development/dashline', 'dim']] },
   worktree: { name: 'worktree', desc: 'Active git worktree', category: 'git', parts: [['hotfix', 'yellow']] },
+  dirty: {
+    name: 'working tree',
+    desc: 'Staged, unstaged, and untracked file counts. Each part is also its own variant.',
+    category: 'git',
+    parts: [['+2 *3 ?1', 'yellow']],
+    variants: {
+      flags: [['+*?', 'yellow']],
+      staged: [['+2', 'green']],
+      unstaged: [['*3', 'yellow']],
+      untracked: [['?1', 'red']],
+      conflicts: [['!1', 'red']],
+      clean: [['✓', 'green']],
+    },
+  },
+  sync: {
+    name: 'ahead / behind',
+    desc: 'Commits ahead of and behind the upstream. Hides when the branch has no upstream.',
+    category: 'git',
+    parts: [['↑2↓3', 'yellow']],
+    variants: { ahead: [['↑2', 'green']], behind: [['↓3', 'yellow']], synced: [['≡', 'green']] },
+  },
+  sha: { name: 'commit sha', desc: 'Short hash of HEAD', category: 'git', parts: [['a1b2c3d', 'dim']] },
+  stash: { name: 'stash', desc: 'Number of stash entries', category: 'git', parts: [['⚑2', 'dim']] },
+  diff: {
+    name: 'working diff',
+    desc: 'Working-tree churn against HEAD. Distinct from lines, which counts what this session wrote.',
+    category: 'git',
+    parts: [['+42', 'green'], [' -10', 'red']],
+    variants: DELTA_VARIANTS(42, 10),
+  },
   pr: { name: 'PR number', desc: 'Pull request for the branch', category: 'git', parts: [['PR #702', 'magenta']] },
   review: { name: 'review state', desc: 'Review state of the PR', category: 'git', parts: [['pending', 'yellow']] },
-  lines: { name: 'lines +/-', desc: 'Lines added and removed', category: 'git', parts: [['+156', 'green'], [' -23', 'red']] },
+  lines: {
+    name: 'lines +/-',
+    desc: 'Lines this session added and removed',
+    category: 'git',
+    parts: [['+156', 'green'], [' -23', 'red']],
+    variants: DELTA_VARIANTS(156, 23),
+  },
 
-  model: { name: 'model', desc: 'Active model name', category: 'model', parts: [['Opus 4.8', 'bold']] },
+  model: {
+    name: 'model',
+    desc: 'Active model name. The default trims the context parenthetical; "full" keeps it.',
+    category: 'model',
+    parts: [['Opus 4.8', 'bold']],
+    variants: { full: [['Opus 4.8 (1M context)', 'bold']], id: [['claude-opus-5', 'dim']] },
+  },
   effort: { name: 'effort', desc: 'Reasoning effort level', category: 'model', parts: [['high', 'dim']] },
   fast: { name: 'fast mode', desc: 'Fast mode indicator', category: 'model', parts: [['fast', 'yellow']] },
   thinking: { name: 'thinking', desc: 'Extended thinking indicator', category: 'model', parts: [['thinking', 'yellow']] },
@@ -125,14 +285,62 @@ export const WIDGETS: Record<string, WidgetMeta> = {
 
   context: { name: 'context', desc: 'Context window used, with bar', category: 'usage', parts: [['44%', 'yellow'], [' ████░░░░░░', 'yellow'], [' (440k/1.0M)', 'dim'], [' · high', 'yellow']] },
   session: { name: 'session usage', desc: '5-hour usage and reset countdown', category: 'usage', parts: [['session ', 'dim'], ['61%', 'green'], [' (↻2h11m)', 'dim']] },
-  weekly: { name: 'weekly usage', desc: 'Weekly usage across models', category: 'usage', parts: [['All ', 'dim'], ['74%', 'yellow']] },
+  weekly: { name: 'weekly usage', desc: 'Weekly usage and reset', category: 'usage', parts: [['All ', 'dim'], ['74%', 'yellow'], [' (↻3d16h)', 'dim']] },
   cost: { name: 'cost', desc: 'Estimated session cost', category: 'usage', parts: [['$2.69', 'green']] },
+  rate: {
+    name: 'burn rate',
+    desc: 'Spend per hour, from cost over duration. Waits for a minute of wall clock.',
+    category: 'usage',
+    parts: [['$4.10/h', 'green']],
+    variants: { cents: [['410c/h', 'green']], round: [['$4/h', 'green']] },
+  },
   burn: { name: 'burn (ETA)', desc: 'Burn rate and time to compact', category: 'usage', parts: [['→ /compact ~18m', 'red']] },
   duration: { name: 'duration', desc: 'Time since the session started', category: 'usage', parts: [['37m', 'dim']] },
 
-  name: { name: 'session name', desc: 'Generated session name', category: 'session', parts: [['celestial-vega', 'dim']] },
+  name: {
+    name: 'session name',
+    desc: 'Generated session name, or the bare id',
+    category: 'session',
+    parts: [['celestial-vega', 'dim']],
+    variants: { id: [['abcd1234', 'dim']] },
+  },
   output: { name: 'output style', desc: 'Active output style', category: 'session', parts: [['/rc', 'dim']] },
   version: { name: 'CC version', desc: 'Claude Code version', category: 'session', parts: [['v2.1.90', 'dim']] },
+  host: {
+    name: 'host',
+    desc: 'Machine name. The ssh variant shows it only on a remote session.',
+    category: 'session',
+    parts: [['workbench', 'dim']],
+    variants: { ssh: [['workbench', 'dim']] },
+  },
+  time: {
+    name: 'clock',
+    desc: 'Time of the last render, not a ticking clock',
+    category: 'session',
+    parts: [['14:32', 'dim']],
+    variants: { seconds: [['14:32:07', 'dim']], hm12: [['2:32pm', 'dim']] },
+  },
+
+  [TEXT_ITEM]: {
+    name: 'text',
+    desc: 'Literal text, drawn as written. Takes a color; no variants.',
+    category: 'custom',
+    parts: [['api', 'cyan']],
+  },
+  [COMMAND_ITEM]: {
+    name: 'command',
+    desc: 'A shell command. dashline draws its first line of output as-is, so colors and variants do not apply.',
+    category: 'custom',
+    parts: [['gh pr checks', 'dim']],
+  },
+}
+
+// A freshly dropped item, seeded with the same sample the palette shows so it reads the
+// same before and after the drop.
+export function newItem(widget: string): Item {
+  if (!isCustom(widget)) return { widget }
+  const [text, color] = WIDGETS[widget]?.parts[0] ?? ['', 'white']
+  return widget === TEXT_ITEM ? { widget, text, color } : { widget, text }
 }
 
 export const ORDER: string[] = Object.keys(WIDGETS)
@@ -145,9 +353,18 @@ export function widgetsByCategory(cat: CategoryKey): string[] {
 // index of each palette row, so a drag from the palette resolves back to a widget id.
 export const PALETTE_ORDER: string[] = CATEGORIES.flatMap((c) => widgetsByCategory(c.key))
 
-// Data-visualisation variants and bar styles, matching dashline's percent presenter.
-export type Variant = 'pct' | 'bar' | 'gauge' | 'ratio' | 'tokens' | 'history'
-export const VARIANTS: Variant[] = ['pct', 'bar', 'gauge', 'ratio', 'tokens', 'history']
+// Data-visualisation variants and bar styles, matching dashline's presenters. A variant
+// belongs to a type: percent widgets share one set, delta widgets another, and the
+// working-tree widgets each name their own parts.
+export type Variant =
+  | 'pct' | 'bar' | 'gauge' | 'ratio' | 'tokens' | 'left' | 'history'
+  | 'pair' | 'sum' | 'added'
+  | 'flags' | 'staged' | 'unstaged' | 'untracked' | 'conflicts' | 'clean'
+  | 'ahead' | 'behind' | 'synced'
+  | 'full' | 'id' | 'owner' | 'host' | 'ssh' | 'seconds' | 'hm12' | 'cents' | 'round'
+  | 'basename' | 'upper' | 'lower'
+
+export const VARIANTS: Variant[] = ['pct', 'bar', 'gauge', 'ratio', 'tokens', 'left', 'history']
 
 export type BarStyle = 'blocks' | 'shade' | 'line' | 'ascii' | 'fine' | 'gradient'
 export const BAR_STYLES: BarStyle[] = ['blocks', 'shade', 'line', 'ascii', 'fine', 'gradient']
@@ -155,11 +372,15 @@ export const BAR_STYLES: BarStyle[] = ['blocks', 'shade', 'line', 'ascii', 'fine
 // A placed widget with its per-widget options. Empty options render the widget's defaults.
 export interface Item {
   widget: string
+  // Content for the custom items: the literal string, or the command line to run.
+  text?: string
   color?: ColorName
   label?: string
   variant?: Variant
   bar?: BarStyle
   trend?: boolean
+  // Shorten a label widget's text to N columns, with an ellipsis. Only label.ts reads it.
+  truncate?: number
   icon?: string
   bold?: boolean
   italic?: boolean
@@ -177,44 +398,90 @@ export type ItemOption = Omit<Item, 'widget'>
 interface PercentState {
   value: number
   tone: ColorName
-  prefix?: string
-  ratio: string
-  tokens: string
+  // The token span behind the percentage, for the `ratio` and `tokens` variants. Only the
+  // context window has one; plan usage is a bare percentage, and both variants fall back to
+  // the number when this is absent, exactly as the core does.
+  ratio?: string
+  // Headroom, for the `left` variant. Only meaningful where there is a window size.
+  left?: string
+  // Whether the default presentation draws a bar without being asked. Mirrors the
+  // `defaultBar` flag the context widget sets in the terminal.
+  defaultBar?: boolean
   detail: Part[]
 }
 
 const PERCENT: Record<string, PercentState> = {
-  context: { value: 44, tone: 'yellow', ratio: '440k/1.0M', tokens: '440k', detail: [[' (440k/1.0M)', 'dim'], [' · high', 'yellow']] },
-  session: { value: 61, tone: 'green', prefix: 'session ', ratio: '61/100', tokens: '61%', detail: [[' (↻2h11m)', 'dim']] },
-  weekly: { value: 74, tone: 'yellow', prefix: 'All ', ratio: '74/100', tokens: '74%', detail: [] },
+  context: {
+    value: 44,
+    tone: 'yellow',
+    ratio: '440k/1.0M',
+    left: '560k left',
+    defaultBar: true,
+    detail: [[' (440k/1.0M)', 'dim'], [' · high', 'yellow']],
+  },
+  // No `ratio`: the plan-usage widgets are a bare percentage with no token span behind them,
+  // so the core's `ratio` and `tokens` variants fall through to the number (present/percent.ts
+  // guards both on `d.tokens`). Inventing "61/100" here would preview a string the terminal
+  // has no way to print.
+  session: { value: 61, tone: 'green', detail: [[' (↻2h11m)', 'dim']] },
+  weekly: { value: 74, tone: 'yellow', detail: [[' (↻3d16h)', 'dim']] },
 }
 
 export function isPercent(id: string): boolean {
   return id in PERCENT
 }
 
-const BAR_GLYPHS: Record<BarStyle, [string, string]> = {
-  blocks: ['█', '░'],
-  shade: ['▓', '░'],
-  line: ['━', '┈'],
-  ascii: ['#', '-'],
-  fine: ['█', '░'],
-  gradient: ['█', '░'],
+// The variants a widget offers, empty when it has none. Percent widgets also take a bar
+// style and the trend arrow, which `isPercent` still gates on its own.
+export function variantsFor(id: string): Variant[] {
+  if (isPercent(id)) return VARIANTS
+  const own = Object.keys(WIDGETS[id]?.variants ?? {}) as Variant[]
+  // A label widget also gets the presenter's text transforms, listed after its own so the
+  // widget-specific ones stay first.
+  return isLabelKind(id) ? [...own, ...(TEXT_VARIANTS as readonly string[] as Variant[])] : own
 }
 
+// Mirrors util/bar.ts glyph for glyph. A bar is always exactly `width` columns, which is why a
+// wrapped style spends two of them on its brackets rather than adding to the total — get that
+// wrong and the preview shows a bar two columns wider than the terminal draws.
+const BAR_SETS: Record<BarStyle, { full: string; empty: string; wrap?: [string, string] }> = {
+  blocks: { full: '█', empty: '░' },
+  shade: { full: '▓', empty: '░' },
+  line: { full: '━', empty: '─' },
+  ascii: { full: '#', empty: '-', wrap: ['[', ']'] },
+  // `fine` steps in eighths and `gradient` colours per cell; both draw full blocks.
+  fine: { full: '█', empty: '░' },
+  gradient: { full: '█', empty: '░' },
+}
+
+const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉']
+
 function drawBar(value: number, style: BarStyle, width = 10): string {
-  const [full, empty] = BAR_GLYPHS[style] ?? BAR_GLYPHS.blocks
-  const filled = Math.round((value / 100) * width)
-  const bar = full.repeat(filled) + empty.repeat(Math.max(0, width - filled))
-  return style === 'ascii' ? `[${bar}]` : bar
+  const ratio = Math.min(100, Math.max(0, value)) / 100
+  if (style === 'fine') return fineBar(ratio, width)
+
+  const set = BAR_SETS[style] ?? BAR_SETS.blocks
+  const inner = set.wrap ? Math.max(0, width - 2) : width
+  const fill = Math.round(ratio * inner)
+  const body = set.full.repeat(fill) + set.empty.repeat(inner - fill)
+  return set.wrap ? set.wrap[0] + body + set.wrap[1] : body
+}
+
+// Eighth blocks give 8 sub-cell steps per column for a smooth edge. Working in whole eighths
+// keeps the partial index in 0..7 and the total width exactly `width`.
+function fineBar(ratio: number, width: number): string {
+  const eighths = Math.round(ratio * width * 8)
+  const full = Math.floor(eighths / 8)
+  const part = eighths % 8
+  const partial = part > 0 && full < width ? EIGHTHS[part] : ''
+  const empty = width - full - (partial ? 1 : 0)
+  return '█'.repeat(Math.min(full, width)) + partial + '░'.repeat(Math.max(0, empty))
 }
 
 // A short bar in the given style, for previewing options in menus.
 export function barSample(style: BarStyle, value = 60, width = 6): string {
   return drawBar(value, style, width)
 }
-
-const GAUGE = ['○', '◔', '◑', '◕', '●']
 
 // A snapshot of the live-changing values, so the terminal preview can play through believable
 // states (fresh session → context filling → near the limit) instead of one frozen frame.
@@ -238,6 +505,12 @@ export const SCENARIOS: Scenario[] = [
   { name: 'Near the limit', context: 96, session: 91, weekly: 88, branch: 'hotfix', cost: '$8.26', duration: '2h04m', effort: 'high', reset: '0h41m' },
 ]
 
+// A scenario pinned to one value, for showing what a widget looks like exactly at a
+// threshold. Lives here beside SCENARIOS rather than inline in the settings panel.
+export function previewScenario(at: number): Scenario {
+  return { name: 'preview', context: at, session: at, weekly: at, effort: 'high', reset: '2h11m' }
+}
+
 // The warning/critical cut-offs that color percentages, mirroring dashline's built-in defaults
 // when a threshold is left at 0.
 export interface PctThresholds {
@@ -247,7 +520,26 @@ export interface PctThresholds {
   usageCrit: number
 }
 
-const DEFAULT_THRESHOLDS: PctThresholds = { contextWarn: 40, contextCrit: 50, usageWarn: 70, usageCrit: 90 }
+// dashline's own defaults, keyed by settings key so a component can resolve one threshold
+// without restating the numbers. `DEFAULT_THRESHOLDS` is derived so there is one literal.
+export const THRESHOLD_DEFAULTS: Record<ThresholdKey, number> = {
+  contextWarningAt: 40,
+  contextCriticalAt: 50,
+  usageWarningAt: 70,
+  usageCriticalAt: 90,
+}
+
+const DEFAULT_THRESHOLDS: PctThresholds = {
+  contextWarn: THRESHOLD_DEFAULTS.contextWarningAt,
+  contextCrit: THRESHOLD_DEFAULTS.contextCriticalAt,
+  usageWarn: THRESHOLD_DEFAULTS.usageWarningAt,
+  usageCrit: THRESHOLD_DEFAULTS.usageCriticalAt,
+}
+
+// The value a threshold actually takes: the setting, or dashline's default when unset.
+export function effectiveThreshold(settings: Settings, k: ThresholdKey): number {
+  return settings[k] || THRESHOLD_DEFAULTS[k]
+}
 
 export function resolveThresholds(s: Settings): PctThresholds {
   return {
@@ -278,23 +570,25 @@ function resolvePercent(widget: string, scenario: Scenario | undefined, th: PctT
   const tone = toneFor(value, widget === 'context' ? 'context' : 'usage', th)
   if (widget === 'context') {
     const usedK = Math.max(1, Math.round((value / 100) * 1000))
-    return { value, tone, ratio: `${usedK}k/1.0M`, tokens: `${usedK}k`, detail: [[` (${usedK}k/1.0M)`, 'dim'], [` · ${scenario.effort ?? 'high'}`, tone]] }
+    return {
+      value,
+      tone,
+      ratio: `${usedK}k/1.0M`,
+      left: `${Math.max(0, 1000 - usedK)}k left`,
+      defaultBar: true,
+      detail: [[` (${usedK}k/1.0M)`, 'dim'], [` · ${scenario.effort ?? 'high'}`, tone]],
+    }
   }
   if (widget === 'session') {
-    return { value, tone, prefix: 'session ', ratio: `${value}/100`, tokens: `${value}%`, detail: [[` (↻${scenario.reset ?? '2h11m'})`, 'dim']] }
+    return { value, tone, detail: [[` (↻${scenario.reset ?? '2h11m'})`, 'dim']] }
   }
-  return { value, tone, prefix: 'All ', ratio: `${value}/100`, tokens: `${value}%`, detail: [] }
+  return { value, tone, detail: [[' (↻3d16h)', 'dim']] }
 }
 
 // The default (no-variant) look of a live widget, rebuilt from a scenario so playback moves the
 // numbers, bars, and colors even when the user hasn't chosen an explicit variant.
-function scenarioParts(widget: string, scenario: Scenario | undefined, th: PctThresholds): Part[] | null {
+function scenarioParts(widget: string, scenario: Scenario | undefined): Part[] | null {
   if (!scenario) return null
-  const p = resolvePercent(widget, scenario, th)
-  if (p) {
-    if (widget === 'context') return [[`${p.value}%`, p.tone], [` ${drawBar(p.value, 'blocks')}`, p.tone], ...p.detail]
-    return [[p.prefix ?? '', 'dim'], [`${p.value}%`, p.tone], ...p.detail]
-  }
   switch (widget) {
     case 'branch':
       return scenario.branch ? [[scenario.branch, 'cyan']] : null
@@ -309,37 +603,79 @@ function scenarioParts(widget: string, scenario: Scenario | undefined, th: PctTh
   }
 }
 
+// Mirrors dashline's percent presenter exactly: the reductive variants draw only their
+// own part, with no label and no trailing detail. Getting this wrong makes the preview
+// lie about what the terminal will print, which is the one thing it must not do.
 function percentParts(item: Item, scenario: Scenario | undefined, th: PctThresholds): Part[] | null {
   const s = resolvePercent(item.widget, scenario, th)
-  if (!s || (!item.variant && !item.bar)) return null
-  const variant: Variant = item.variant ?? 'bar'
+  if (!s) return null
   const pct = `${s.value}%`
-  const head = (s.prefix ?? '') + pct
-  switch (variant) {
+  const style = item.bar ?? 'blocks'
+
+  switch (item.variant) {
     case 'pct':
-      return [[head, s.tone]]
-    case 'gauge':
-      return [[head + ' ', s.tone], [GAUGE[Math.min(GAUGE.length - 1, Math.floor((s.value / 100) * GAUGE.length))], s.tone], ...s.detail]
-    case 'ratio':
-      return [[(s.prefix ?? '') + `(${s.ratio})`, 'dim']]
-    case 'tokens':
-      return [[(s.prefix ?? '') + s.tokens, s.tone]]
-    case 'history':
-      return [[(s.prefix ?? '') + '▁▂▃▅▇▆', s.tone]]
+      return [[pct, s.tone]]
     case 'bar':
-    default:
-      return [[head + ' ', s.tone], [drawBar(s.value, item.bar ?? 'blocks'), s.tone], ...s.detail]
+      return [[drawBar(s.value, style), s.tone]]
+    case 'gauge':
+      return [[`▕${drawBar(s.value, style)}▏`, s.tone]]
+    // Both fall back to the plain number where there is no token span, and the fallback keeps
+    // the value's own tone rather than the dim the bracketed form uses.
+    case 'ratio':
+      return [[s.ratio ?? pct, s.tone]]
+    case 'tokens':
+      return s.ratio ? [[`(${s.ratio})`, 'dim']] : [[pct, s.tone]]
+    case 'left':
+      // Only the context window has a size to subtract from; the rest fall back.
+      return [[s.left ?? pct, s.tone]]
+    case 'history':
+      return [['▁▂▃▅▇▆', s.tone]]
   }
+
+  // No variant: label, number, the trend arrow, the bar when the widget draws one by default
+  // or one was asked for, then the trailing detail (tokens, hint, countdown). This is the part
+  // order of present/percent.ts, and it has to stay that order — the arrow sits between the
+  // number and the meter there, not after them.
+  const parts: Part[] = [[pct, s.tone]]
+  // The arrow compares against session history, which only the context window keeps, so the
+  // core gates it on `d.scale === "context"` and the usage widgets ignore the option.
+  if (item.trend && item.widget === 'context') parts.push([' ↑', 'green'])
+  if (s.defaultBar || item.bar) parts.push([` ${drawBar(s.value, style)}`, s.tone])
+  return [...parts, ...s.detail]
 }
 
 // The colored parts a placed item renders, applying its variant, bar, label, and trend. An
 // optional scenario overrides the live values so the terminal preview can play through states.
 export function widgetParts(item: Item, scenario?: Scenario, th: PctThresholds = DEFAULT_THRESHOLDS): Part[] {
-  const base = percentParts(item, scenario, th) ?? scenarioParts(item.widget, scenario, th) ?? WIDGETS[item.widget]?.parts ?? []
-  let parts: Part[] = base.map((p) => [...p] as Part)
-  if (item.label) parts = [[`${item.label} `, 'dim'], ...parts]
-  if (item.trend) parts = [...parts, [' ↑', 'green']]
-  return parts
+  // With no content yet — in the palette, or before anything is typed — the sample from
+  // the widget's metadata stands in, so the row is never blank.
+  if (item.widget === TEXT_ITEM) {
+    return item.text ? [[item.text, item.color ?? 'white']] : (WIDGETS[TEXT_ITEM]?.parts ?? [])
+  }
+  // The real output is whatever the command prints, which the browser cannot know; the
+  // command line itself stands in for it.
+  if (item.widget === COMMAND_ITEM) {
+    return item.text ? [[item.text, 'dim']] : (WIDGETS[COMMAND_ITEM]?.parts ?? [])
+  }
+
+  const meta = WIDGETS[item.widget]
+  const chosen = item.variant ? meta?.variants?.[item.variant] : undefined
+  // The icon and the label are not applied here — present() draws those around whatever this
+  // returns, for every kind alike. See chromeOf.
+  const base = percentParts(item, scenario, th) ?? chosen ?? scenarioParts(item.widget, scenario) ?? meta?.parts ?? []
+  const parts = base.map((p) => [...p] as Part)
+  if (!isLabelKind(item.widget)) return parts
+
+  // label.ts transforms the text it was given, so these run after the widget's own variant has
+  // chosen what to draw, and across the parts as one string — truncating each part separately
+  // would give one ellipsis per part.
+  const joined = parts.map(([t]) => t).join('')
+  let text = transform(joined, item.variant)
+  if (item.truncate && item.truncate > 0) text = clip(text, item.truncate)
+  if (text === joined) return parts
+  // A transform collapses the parts into one, since it can no longer say which colour a
+  // character came from. Label widgets draw in a single colour anyway.
+  return [[text, parts[0]?.[1] ?? 'white']]
 }
 
 export interface Line {
@@ -398,14 +734,24 @@ export function colorOf(name: ColorName, theme: string): string {
   return (t && t[name]) || COLORS[name]
 }
 
-// One placed item, as it appears in the config: a bare widget name, or [name, { options }].
-function itemToConfig(it: Item): string | [string, Record<string, unknown>] {
+// One placed item, as it appears in the config: a bare widget name, [name, { options }],
+// a { text } object, or a bare command string.
+function itemToConfig(it: Item): string | [string, Record<string, unknown>] | Record<string, unknown> {
+  if (it.widget === TEXT_ITEM) {
+    const text: Record<string, unknown> = { text: it.text ?? '' }
+    // dashline honours only color and bg on a literal; the rest would be ignored.
+    if (it.color) text.color = it.color
+    return text
+  }
+  if (it.widget === COMMAND_ITEM) return it.text ?? ''
+
   const opts: Record<string, unknown> = {}
   if (it.color) opts.color = it.color
   if (it.label) opts.label = it.label
   if (it.variant) opts.variant = it.variant
   if (it.bar) opts.bar = it.bar
   if (it.trend) opts.trend = true
+  if (it.truncate) opts.truncate = it.truncate
   if (it.icon) opts.icon = it.icon
   if (it.bold) opts.bold = true
   if (it.italic) opts.italic = true
@@ -453,6 +799,7 @@ function applyOpts(item: Item, opts: Record<string, unknown>): void {
   if (typeof opts.variant === 'string') item.variant = opts.variant as Variant
   if (typeof opts.bar === 'string') item.bar = opts.bar as BarStyle
   if (opts.trend === true) item.trend = true
+  if (typeof opts.truncate === 'number' && opts.truncate > 0) item.truncate = opts.truncate
   if (typeof opts.icon === 'string') item.icon = opts.icon
   if (opts.bold === true) item.bold = true
   if (opts.italic === true) item.italic = true
@@ -460,7 +807,11 @@ function applyOpts(item: Item, opts: Record<string, unknown>): void {
 }
 
 function parseItem(raw: unknown): Item | null {
-  if (typeof raw === 'string') return { widget: raw }
+  // A bare string is a widget when it names one, and a shell command otherwise —
+  // the same rule dashline applies when it renders.
+  if (typeof raw === 'string') {
+    return WIDGETS[raw] && !isCustom(raw) ? { widget: raw } : { widget: COMMAND_ITEM, text: raw }
+  }
   if (Array.isArray(raw)) {
     const [name, second] = raw
     if (typeof name !== 'string') return null
@@ -469,7 +820,14 @@ function parseItem(raw: unknown): Item | null {
     else if (second && typeof second === 'object') applyOpts(item, second as Record<string, unknown>)
     return item
   }
-  return null // literal { text } items have no builder equivalent
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>
+    if (typeof o.text !== 'string') return null
+    const item: Item = { widget: TEXT_ITEM, text: o.text }
+    if (typeof o.color === 'string') item.color = o.color as ColorName
+    return item
+  }
+  return null
 }
 
 function parseLine(raw: unknown): Line {

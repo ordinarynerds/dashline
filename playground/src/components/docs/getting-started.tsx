@@ -24,38 +24,38 @@ export function GettingStarted() {
     <DocPage
       title="Getting started"
       lead="A Claude Code status line configured in settings.json. The default shows the context window on the left and plan usage on the right. Change it by editing a list of fields."
+      next={{ to: '/install', title: 'Install', hint: 'Two routes, both ending at settings.json' }}
     >
       <DocSection title="Why">
-        <p className="text-sm text-muted-foreground">
+        <p>
           dashline keeps two numbers on screen: how full the context window is, and how much of the session and weekly rate limit is
-          used. Both otherwise live behind the <code className="text-foreground">/usage</code> command. Any other field in the payload
-          can be added by name.
+          used. Both otherwise live behind the <code>/usage</code> command. Any other field in the payload can be added by name.
         </p>
       </DocSection>
 
       <DocSection title="Quick start">
-        <p className="text-sm text-muted-foreground">
-          The config is a <code className="text-foreground">dashline</code> key in <code className="text-foreground">~/.claude/settings.json</code>.
-          Each entry in <code className="text-foreground">lines</code> is one row. This is the default:
+        <p>
+          The config is a <code>dashline</code> key in <code>~/.claude/settings.json</code>. Each entry in <code>lines</code> is one
+          row. This is the default:
         </p>
-        <CodeBlock code={DEFAULT_CONFIG} lang="json" />
+        <CodeBlock code={DEFAULT_CONFIG} lang="json" title="~/.claude/settings.json" />
       </DocSection>
 
       <DocSection title="Items">
-        <p className="text-sm text-muted-foreground">An item is one of six shapes:</p>
+        <p>An item is one of six shapes:</p>
         <CodeBlock code={ITEM_SHAPES} lang="jsonc" />
-        <p className="text-sm text-muted-foreground">
-          A row is either a bare array like <code className="text-foreground">["branch", "model"]</code> (left-aligned), or a{' '}
-          <code className="text-foreground">{'{ "left": [...], "center": [...], "right": [...] }'}</code> object spread across the width.
+        <p>
+          A row is either a bare array like <code>["branch", "model"]</code> (left-aligned), or a{' '}
+          <code>{'{ "left": [...], "center": [...], "right": [...] }'}</code> object spread across the width.
         </p>
       </DocSection>
 
       <DocSection title="Build it visually">
-        <p className="text-sm text-muted-foreground">
+        <p>
           The Build tab is a drag-and-drop editor for exactly this config. Drop widgets into zones, set colors and variants, tune
-          thresholds, and copy the result straight into your settings.
+          thresholds, and copy the result straight into your settings — no install required to try it.
         </p>
-        <Button asChild className="w-fit gap-2">
+        <Button asChild className="mt-1 w-fit gap-2">
           <Link to="/build">
             <Blocks className="size-4" /> Open the builder
           </Link>
