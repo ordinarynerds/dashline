@@ -72,6 +72,13 @@ const DEFAULT_LABELS: Record<string, string> = {
   weekly: 'All',
 }
 
+// `cost` names itself only when it sums a window other than the session in front of you —
+// "$41.80" beside "$2.69" is two sums of money with nothing to tell them apart.
+function defaultLabel(item: Item): string | undefined {
+  if (item.widget !== 'cost') return DEFAULT_LABELS[item.widget]
+  return item.period && item.period !== 'session' ? item.period : undefined
+}
+
 // Preview glyphs, applied by the icons setting. Every widget renders one now that present()
 // owns the icon, so the only constraint is that these keys stay in step with the ICONS table
 // in src/render.ts — a glyph here for a widget that table omits would promise a status line
@@ -168,7 +175,7 @@ export function chromeOf(item: Item, icons: boolean): Chrome {
     iconColor: icon && icon === builtin?.glyph ? builtin.color : 'dim',
     // A label named in config always wins, and always survives a variant. The widget's own is
     // part of the full presentation a variant opts out of.
-    label: item.label ?? (item.variant ? undefined : DEFAULT_LABELS[item.widget]),
+    label: item.label ?? (item.variant ? undefined : defaultLabel(item)),
   }
 }
 
@@ -286,16 +293,12 @@ export const WIDGETS: Record<string, WidgetMeta> = {
   context: { name: 'context', desc: 'Context window used, with bar', category: 'usage', parts: [['44%', 'yellow'], [' ████░░░░░░', 'yellow'], [' (440k/1.0M)', 'dim'], [' · high', 'yellow']] },
   session: { name: 'session usage', desc: '5-hour usage and reset countdown', category: 'usage', parts: [['session ', 'dim'], ['61%', 'green'], [' (↻2h11m)', 'dim']] },
   weekly: { name: 'weekly usage', desc: 'Weekly usage and reset', category: 'usage', parts: [['All ', 'dim'], ['74%', 'yellow'], [' (↻3d16h)', 'dim']] },
-  cost: { name: 'cost', desc: 'Estimated session cost', category: 'usage', parts: [['$2.69', 'green']] },
-  spend: {
-    name: 'weekly spend',
-    desc: 'Cost across every session this week, tallied by dashline and reset with your weekly quota',
+  cost: {
+    name: 'cost',
+    desc: 'What it has cost. The period picks the window: this session, or the week or month across every session.',
     category: 'usage',
-    parts: [
-      ['week ', 'dim'],
-      ['$41.80', 'green'],
-    ],
-    variants: { cents: [['4180c', 'green']], round: [['$42', 'green']] },
+    parts: [['$2.69', 'green']],
+    variants: { cents: [['269c', 'green']], round: [['$3', 'green']] },
   },
   rate: {
     name: 'burn rate',
@@ -389,6 +392,9 @@ export interface Item {
   variant?: Variant
   bar?: BarStyle
   trend?: boolean
+  // Which window `cost` sums. Its own option rather than a variant so it composes with the
+  // money variants: a rounded monthly total is period month + variant round.
+  period?: Period
   // Shorten a label widget's text to N columns, with an ellipsis. Only label.ts reads it.
   truncate?: number
   icon?: string
@@ -396,6 +402,10 @@ export interface Item {
   italic?: boolean
   underline?: boolean
 }
+
+// The windows `cost` can sum, mirroring src/widgets/cost.ts.
+export const PERIODS = ['session', 'week', 'month'] as const
+export type Period = (typeof PERIODS)[number]
 
 // Text-attribute options, in the order the toggles appear in the item menu.
 export const TEXT_STYLES = ['bold', 'italic', 'underline'] as const
@@ -597,6 +607,18 @@ function resolvePercent(widget: string, scenario: Scenario | undefined, th: PctT
 
 // The default (no-variant) look of a live widget, rebuilt from a scenario so playback moves the
 // numbers, bars, and colors even when the user hasn't chosen an explicit variant.
+// A cross-session total. Only the windows: the session path is left alone so a plain `cost`
+// still takes its figure from the scenario, exactly as before.
+const COST_SAMPLE = { week: 41.8, month: 128.4 } as const
+
+function costParts(item: Item): Part[] | null {
+  if (item.widget !== 'cost' || (item.period !== 'week' && item.period !== 'month')) return null
+  const usd = COST_SAMPLE[item.period]
+  if (item.variant === 'cents') return [[`${Math.round(usd * 100)}c`, 'green']]
+  if (item.variant === 'round') return [[`$${Math.round(usd)}`, 'green']]
+  return [[`$${usd.toFixed(2)}`, 'green']]
+}
+
 function scenarioParts(widget: string, scenario: Scenario | undefined): Part[] | null {
   if (!scenario) return null
   switch (widget) {
@@ -672,7 +694,7 @@ export function widgetParts(item: Item, scenario?: Scenario, th: PctThresholds =
   const chosen = item.variant ? meta?.variants?.[item.variant] : undefined
   // The icon and the label are not applied here — present() draws those around whatever this
   // returns, for every kind alike. See chromeOf.
-  const base = percentParts(item, scenario, th) ?? chosen ?? scenarioParts(item.widget, scenario) ?? meta?.parts ?? []
+  const base = percentParts(item, scenario, th) ?? costParts(item) ?? chosen ?? scenarioParts(item.widget, scenario) ?? meta?.parts ?? []
   const parts = base.map((p) => [...p] as Part)
   if (!isLabelKind(item.widget)) return parts
 
@@ -761,6 +783,7 @@ function itemToConfig(it: Item): string | [string, Record<string, unknown>] | Re
   if (it.variant) opts.variant = it.variant
   if (it.bar) opts.bar = it.bar
   if (it.trend) opts.trend = true
+  if (it.period && it.period !== 'session') opts.period = it.period
   if (it.truncate) opts.truncate = it.truncate
   if (it.icon) opts.icon = it.icon
   if (it.bold) opts.bold = true
@@ -809,6 +832,7 @@ function applyOpts(item: Item, opts: Record<string, unknown>): void {
   if (typeof opts.variant === 'string') item.variant = opts.variant as Variant
   if (typeof opts.bar === 'string') item.bar = opts.bar as BarStyle
   if (opts.trend === true) item.trend = true
+  if (typeof opts.period === 'string' && (PERIODS as readonly string[]).includes(opts.period)) item.period = opts.period as Period
   if (typeof opts.truncate === 'number' && opts.truncate > 0) item.truncate = opts.truncate
   if (typeof opts.icon === 'string') item.icon = opts.icon
   if (opts.bold === true) item.bold = true

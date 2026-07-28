@@ -94,20 +94,22 @@ var weekly = {
 };
 
 // src/widgets/cost.ts
+function periodOf(opts) {
+  return opts.period === "week" || opts.period === "month" ? opts.period : "session";
+}
 var cost = {
-  data({ payload: payload2 }) {
-    const usd = payload2.cost?.total_cost_usd;
-    if (usd == null) return null;
-    return { kind: "money", usd };
-  }
-};
-
-// src/widgets/spend.ts
-var spend = {
-  needs: { ledger: true },
-  data({ ledger }, opts) {
-    if (ledger == null) return null;
-    return { kind: "money", usd: ledger, label: named("week", opts.variant) };
+  // Only the cross-session windows need the ledger read; the session total is already in the
+  // payload. Declared as a function so a line showing plain session cost pays nothing for a
+  // window it never asked for.
+  needs: (opts) => periodOf(opts) === "session" ? {} : { ledger: true },
+  data({ payload: payload2, ledger }, opts) {
+    const period = periodOf(opts);
+    if (period === "session") {
+      const usd2 = payload2.cost?.total_cost_usd;
+      return usd2 == null ? null : { kind: "money", usd: usd2 };
+    }
+    const usd = ledger?.[period];
+    return usd == null ? null : { kind: "money", usd, label: named(period, opts.variant) };
   }
 };
 
@@ -456,7 +458,6 @@ var registry = {
   session,
   weekly,
   cost,
-  spend,
   duration,
   lines,
   pr,
@@ -483,6 +484,95 @@ var registry = {
   time
 };
 var widgetNames = new Set(Object.keys(registry));
+
+// src/style.ts
+var CODES = {
+  reset: "0",
+  bold: "1",
+  dim: "2",
+  italic: "3",
+  underline: "4",
+  black: "30",
+  red: "31",
+  green: "32",
+  yellow: "33",
+  blue: "34",
+  magenta: "35",
+  cyan: "36",
+  white: "37",
+  gray: "90"
+};
+var THEMES = {
+  nord: { red: "#BF616A", green: "#A3BE8C", yellow: "#EBCB8B", blue: "#81A1C1", magenta: "#B48EAD", cyan: "#88C0D0", gray: "#4C566A", black: "#2E3440", white: "#ECEFF4" },
+  dracula: { red: "#FF5555", green: "#50FA7B", yellow: "#F1FA8C", blue: "#6272A4", magenta: "#FF79C6", cyan: "#8BE9FD", gray: "#6272A4", black: "#282A36", white: "#F8F8F2" },
+  gruvbox: { red: "#CC241D", green: "#98971A", yellow: "#D79921", blue: "#458588", magenta: "#B16286", cyan: "#689D6A", gray: "#928374", black: "#282828", white: "#EBDBB2" },
+  catppuccin: { red: "#F38BA8", green: "#A6E3A1", yellow: "#F9E2AF", blue: "#89B4FA", magenta: "#CBA6F7", cyan: "#94E2D5", gray: "#6C7086", black: "#1E1E2E", white: "#CDD6F4" },
+  // Built from dashline's own palette: the coral and cyan the project brands itself with,
+  // with the rest of the ramp tuned to sit between them.
+  ordinarynerds: { red: "#FF6B4A", green: "#3FCF8E", yellow: "#F2B441", blue: "#5AA9F0", magenta: "#C678DD", cyan: "#4EC9D6", gray: "#6B6B70", black: "#1C1C20", white: "#F5F5F5" }
+};
+var activeTheme = null;
+function setTheme(name2) {
+  activeTheme = name2 && THEMES[name2] ? THEMES[name2] : null;
+}
+var RESET = "\x1B[0m";
+var CONTROL = /[\x00-\x1f\x7f]/g;
+function paint(text, term, bg) {
+  if (!text || !term && !bg) return text;
+  const codes = [];
+  if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c) => c !== null));
+  if (bg) {
+    const b = bgCode(bg);
+    if (b) codes.push(b);
+  }
+  if (codes.length === 0) return text;
+  return `\x1B[${codes.join(";")}m${text}${RESET}`;
+}
+function bgCode(word) {
+  const rgb = themedHex(word);
+  if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
+  const fg = CODES[word];
+  return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null;
+}
+function bgToFg(bg) {
+  if (bg.startsWith("48;2;")) return `38;2;${bg.slice(5)}`;
+  const n = Number(bg);
+  return Number.isFinite(n) ? String(n - 10) : bg;
+}
+function fill(text, bg) {
+  const open = `\x1B[${bg}m`;
+  return open + text.split(RESET).join(`${RESET}${open}`) + RESET;
+}
+function isStyle(term) {
+  return term.split(/\s+/).every((word) => codesFor(word) !== null);
+}
+function styleTerm(color, opts) {
+  const words = [];
+  if (color) words.push(color);
+  if (opts.bold) words.push("bold");
+  if (opts.italic) words.push("italic");
+  if (opts.underline) words.push("underline");
+  return words.length ? words.join(" ") : void 0;
+}
+function codesFor(word) {
+  const rgb = themedHex(word);
+  if (rgb) return `38;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
+  return word in CODES ? CODES[word] : null;
+}
+function themedHex(word) {
+  const themed = activeTheme ? activeTheme[word] : void 0;
+  return hex(themed ?? word);
+}
+function hex(word) {
+  if (!word.startsWith("#")) return null;
+  let h = word.slice(1);
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function sanitize(text) {
+  return text.replace(CONTROL, "");
+}
 
 // src/config.ts
 var DEFAULTS = {
@@ -534,6 +624,12 @@ function withoutCommands(line) {
   if (line.center) zones.center = line.center.filter(keep);
   if (line.right) zones.right = line.right.filter(keep);
   return zones;
+}
+function itemOpts(item) {
+  if (!Array.isArray(item)) return {};
+  const raw2 = item[1];
+  if (typeof raw2 === "string") return isStyle(raw2) ? { color: raw2 } : { variant: raw2 };
+  return raw2 ?? {};
 }
 function keep(item) {
   if (typeof item === "string") return widgetNames.has(item);
@@ -684,7 +780,7 @@ function scan(lines2) {
         const id = itemId(item);
         if (id === null) continue;
         const widget = registry[id];
-        if (widget) Object.assign(needs, widget.needs);
+        if (widget) Object.assign(needs, typeof widget.needs === "function" ? widget.needs(itemOpts(item)) : widget.needs);
         else {
           commands2.add(id);
           Object.assign(needs, COMMAND_NEEDS);
@@ -788,9 +884,12 @@ var GAP2 = 5;
 function ledgerFile() {
   return join3(stateDir(), "spend.json");
 }
-function recordSpend(sessionId, usd, now2, since) {
+function recordSpend(sessionId, usd, now2, resetsAt) {
   const id = (sessionId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
   if (!id) return null;
+  const week = weekStart(resetsAt, now2);
+  const month = monthStart(now2);
+  const keepFrom = Math.min(week, month);
   const file = ledgerFile();
   let ledger = {};
   try {
@@ -799,7 +898,7 @@ function recordSpend(sessionId, usd, now2, since) {
   } catch {
   }
   for (const [key, entry] of Object.entries(ledger)) {
-    if (!entry || typeof entry.t !== "number" || typeof entry.usd !== "number" || entry.t < since) delete ledger[key];
+    if (!entry || typeof entry.t !== "number" || typeof entry.usd !== "number" || entry.t < keepFrom) delete ledger[key];
   }
   const own = ledger[id];
   if (usd != null && (!own || now2 - own.t >= GAP2 || usd !== own.usd)) {
@@ -813,8 +912,11 @@ function recordSpend(sessionId, usd, now2, since) {
     } catch {
     }
   }
-  let total = 0;
-  for (const entry of Object.values(ledger)) total += entry.usd;
+  const total = { week: 0, month: 0 };
+  for (const entry of Object.values(ledger)) {
+    if (entry.t >= week) total.week += entry.usd;
+    if (entry.t >= month) total.month += entry.usd;
+  }
   return total;
 }
 function weekStart(resetsAt, now2) {
@@ -822,6 +924,10 @@ function weekStart(resetsAt, now2) {
   const start = resetsAt - WEEK;
   if (start + WEEK > now2) return start;
   return start + Math.floor((now2 - start) / WEEK) * WEEK;
+}
+function monthStart(now2) {
+  const d = new Date(now2 * 1e3);
+  return Math.floor(new Date(d.getFullYear(), d.getMonth(), 1).getTime() / 1e3);
 }
 
 // src/widgets/command.ts
@@ -871,95 +977,6 @@ function exported(ctx2) {
     DASHLINE_WORKTREE: ctx2.git.worktree ?? "",
     DASHLINE_CWD: ctx2.payload.workspace?.current_dir ?? ctx2.payload.cwd ?? ""
   };
-}
-
-// src/style.ts
-var CODES = {
-  reset: "0",
-  bold: "1",
-  dim: "2",
-  italic: "3",
-  underline: "4",
-  black: "30",
-  red: "31",
-  green: "32",
-  yellow: "33",
-  blue: "34",
-  magenta: "35",
-  cyan: "36",
-  white: "37",
-  gray: "90"
-};
-var THEMES = {
-  nord: { red: "#BF616A", green: "#A3BE8C", yellow: "#EBCB8B", blue: "#81A1C1", magenta: "#B48EAD", cyan: "#88C0D0", gray: "#4C566A", black: "#2E3440", white: "#ECEFF4" },
-  dracula: { red: "#FF5555", green: "#50FA7B", yellow: "#F1FA8C", blue: "#6272A4", magenta: "#FF79C6", cyan: "#8BE9FD", gray: "#6272A4", black: "#282A36", white: "#F8F8F2" },
-  gruvbox: { red: "#CC241D", green: "#98971A", yellow: "#D79921", blue: "#458588", magenta: "#B16286", cyan: "#689D6A", gray: "#928374", black: "#282828", white: "#EBDBB2" },
-  catppuccin: { red: "#F38BA8", green: "#A6E3A1", yellow: "#F9E2AF", blue: "#89B4FA", magenta: "#CBA6F7", cyan: "#94E2D5", gray: "#6C7086", black: "#1E1E2E", white: "#CDD6F4" },
-  // Built from dashline's own palette: the coral and cyan the project brands itself with,
-  // with the rest of the ramp tuned to sit between them.
-  ordinarynerds: { red: "#FF6B4A", green: "#3FCF8E", yellow: "#F2B441", blue: "#5AA9F0", magenta: "#C678DD", cyan: "#4EC9D6", gray: "#6B6B70", black: "#1C1C20", white: "#F5F5F5" }
-};
-var activeTheme = null;
-function setTheme(name2) {
-  activeTheme = name2 && THEMES[name2] ? THEMES[name2] : null;
-}
-var RESET = "\x1B[0m";
-var CONTROL = /[\x00-\x1f\x7f]/g;
-function paint(text, term, bg) {
-  if (!text || !term && !bg) return text;
-  const codes = [];
-  if (term) codes.push(...term.split(/\s+/).map(codesFor).filter((c) => c !== null));
-  if (bg) {
-    const b = bgCode(bg);
-    if (b) codes.push(b);
-  }
-  if (codes.length === 0) return text;
-  return `\x1B[${codes.join(";")}m${text}${RESET}`;
-}
-function bgCode(word) {
-  const rgb = themedHex(word);
-  if (rgb) return `48;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
-  const fg = CODES[word];
-  return fg && /^(3\d|9\d)$/.test(fg) ? String(Number(fg) + 10) : null;
-}
-function bgToFg(bg) {
-  if (bg.startsWith("48;2;")) return `38;2;${bg.slice(5)}`;
-  const n = Number(bg);
-  return Number.isFinite(n) ? String(n - 10) : bg;
-}
-function fill(text, bg) {
-  const open = `\x1B[${bg}m`;
-  return open + text.split(RESET).join(`${RESET}${open}`) + RESET;
-}
-function isStyle(term) {
-  return term.split(/\s+/).every((word) => codesFor(word) !== null);
-}
-function styleTerm(color, opts) {
-  const words = [];
-  if (color) words.push(color);
-  if (opts.bold) words.push("bold");
-  if (opts.italic) words.push("italic");
-  if (opts.underline) words.push("underline");
-  return words.length ? words.join(" ") : void 0;
-}
-function codesFor(word) {
-  const rgb = themedHex(word);
-  if (rgb) return `38;2;${rgb[0]};${rgb[1]};${rgb[2]}`;
-  return word in CODES ? CODES[word] : null;
-}
-function themedHex(word) {
-  const themed = activeTheme ? activeTheme[word] : void 0;
-  return hex(themed ?? word);
-}
-function hex(word) {
-  if (!word.startsWith("#")) return null;
-  let h = word.slice(1);
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-function sanitize(text) {
-  return text.replace(CONTROL, "");
 }
 
 // src/util/bar.ts
@@ -1342,8 +1359,8 @@ function renderItem(item, ctx2, icons) {
     const text = sanitize(item.text);
     return item.color || item.bg ? paint(text, item.color, item.bg) : text;
   }
-  const [id, raw2] = Array.isArray(item) ? item : [item, void 0];
-  let opts = typeof raw2 === "string" ? isStyle(raw2) ? { color: raw2 } : { variant: raw2 } : raw2 ?? {};
+  const id = Array.isArray(item) ? item[0] : item;
+  let opts = itemOpts(item);
   const widget = registry[id];
   if (!widget) return ctx2.commands?.get(id) ?? null;
   if (icons && !opts.icon && ICONS[id]) opts = { ...opts, icon: ICONS[id] };
@@ -1376,12 +1393,7 @@ var ctx = {
   },
   now,
   history: usesHistory ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now) : void 0,
-  ledger: usesLedger ? recordSpend(
-    payload.session_id,
-    payload.cost?.total_cost_usd ?? null,
-    now,
-    weekStart(payload.rate_limits?.seven_day?.resets_at, now)
-  ) : void 0
+  ledger: usesLedger ? recordSpend(payload.session_id, payload.cost?.total_cost_usd ?? null, now, payload.rate_limits?.seven_day?.resets_at) : void 0
 };
 var resolved = await Promise.all(commands.map((cmd) => runCommand(cmd, ctx).then((out) => [cmd, out])));
 ctx.commands = new Map(resolved);

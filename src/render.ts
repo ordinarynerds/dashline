@@ -1,10 +1,10 @@
-import type { DashlineConfig, Item, LineSpec } from './config.ts'
+import { itemOpts, type DashlineConfig, type Item, type LineSpec } from './config.ts'
 import type { Ctx, WidgetOpts } from './widgets/types.ts'
 import { registry } from './widgets/registry.ts'
 import { present } from './present/index.ts'
 import { compose } from './layout.ts'
 import { powerlineZone } from './powerline.ts'
-import { paint, isStyle, sanitize, bgCode } from './style.ts'
+import { paint, sanitize, bgCode } from './style.ts'
 
 // Default Nerd Font glyphs per widget, enabled by `icons: true`. An explicit item icon
 // always wins. Written as code points so no glyphs sit in the source.
@@ -78,9 +78,8 @@ function renderItem(item: Item, ctx: Ctx, icons: boolean): string | null {
     return item.color || item.bg ? paint(text, item.color, item.bg) : text
   }
 
-  const [id, raw] = Array.isArray(item) ? item : [item, undefined]
-  let opts: WidgetOpts =
-    typeof raw === 'string' ? (isStyle(raw) ? { color: raw } : { variant: raw }) : (raw ?? {})
+  const id = Array.isArray(item) ? item[0] : item
+  let opts: WidgetOpts = itemOpts(item)
 
   const widget = registry[id]
   if (!widget) return ctx.commands?.get(id) ?? null

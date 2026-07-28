@@ -4,7 +4,6 @@ import { model } from './model.ts'
 import { context } from './context.ts'
 import { session, weekly } from './usage.ts'
 import { cost } from './cost.ts'
-import { spend } from './spend.ts'
 import { duration } from './duration.ts'
 import { lines } from './lines.ts'
 import { pr } from './pr.ts'
@@ -34,7 +33,6 @@ export const registry: Record<string, Widget> = {
   session,
   weekly,
   cost,
-  spend,
   duration,
   lines,
   pr,

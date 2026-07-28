@@ -1,4 +1,4 @@
-import type { Item, LineSpec } from './config.ts'
+import { itemOpts, type Item, type LineSpec } from './config.ts'
 import type { GitNeeds } from './util/git.ts'
 import type { Needs } from './widgets/types.ts'
 import { registry } from './widgets/registry.ts'
@@ -31,7 +31,7 @@ export function scan(lines: LineSpec[]): Scan {
         const id = itemId(item)
         if (id === null) continue
         const widget = registry[id]
-        if (widget) Object.assign(needs, widget.needs)
+        if (widget) Object.assign(needs, typeof widget.needs === 'function' ? widget.needs(itemOpts(item)) : widget.needs)
         else {
           commands.add(id)
           Object.assign(needs, COMMAND_NEEDS)

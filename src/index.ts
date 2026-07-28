@@ -3,7 +3,7 @@ import { loadConfig } from './config.ts'
 import { readGit } from './util/git.ts'
 import { scan } from './scan.ts'
 import { sampleHistory } from './state.ts'
-import { recordSpend, weekStart } from './ledger.ts'
+import { recordSpend } from './ledger.ts'
 import { contextPercent } from './widgets/context.ts'
 import { runCommand } from './widgets/command.ts'
 import { setTheme } from './style.ts'
@@ -32,12 +32,7 @@ const ctx: Ctx = {
     ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now)
     : undefined,
   ledger: usesLedger
-    ? recordSpend(
-        payload.session_id,
-        payload.cost?.total_cost_usd ?? null,
-        now,
-        weekStart(payload.rate_limits?.seven_day?.resets_at, now),
-      )
+    ? recordSpend(payload.session_id, payload.cost?.total_cost_usd ?? null, now, payload.rate_limits?.seven_day?.resets_at)
     : undefined,
 }
 

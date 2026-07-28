@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { Payload } from './payload.ts'
 import type { WidgetOpts } from './widgets/types.ts'
 import { widgetNames } from './widgets/registry.ts'
+import { isStyle } from './style.ts'
 
 export interface TextItem {
   text: string
@@ -98,6 +99,17 @@ function withoutCommands(line: LineSpec): LineSpec {
   if (line.center) zones.center = line.center.filter(keep)
   if (line.right) zones.right = line.right.filter(keep)
   return zones
+}
+
+// The options an item carries, in the one form the rest of the code wants them. The second
+// element is shorthand: a colour name if it is one, otherwise a variant. Both render() and
+// scan() have to read this the same way — one asks what to draw, the other what to gather
+// first — so they read it from here rather than each keeping its own copy of the rule.
+export function itemOpts(item: Item): WidgetOpts {
+  if (!Array.isArray(item)) return {}
+  const raw = item[1]
+  if (typeof raw === 'string') return isStyle(raw) ? { color: raw } : { variant: raw }
+  return raw ?? {}
 }
 
 // A command is a bare string (or [id, ...]) whose id is not a widget. Widget items

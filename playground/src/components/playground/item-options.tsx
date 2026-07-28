@@ -5,6 +5,7 @@ import {
   COLORS,
   COMMAND_ITEM,
   ICON_CHOICES,
+  PERIODS,
   TEXT_ITEM,
   TEXT_STYLES,
   barSample,
@@ -13,6 +14,7 @@ import {
   variantsFor,
   type BarStyle,
   type Item,
+  type Period,
   type TextStyle,
   type Variant,
   type ZoneKey,
@@ -141,6 +143,14 @@ export function ItemOptions({ li, z, ii, item, children }: { li: number; z: Zone
   const isCommand = item.widget === COMMAND_ITEM
   const isText = item.widget === TEXT_ITEM
 
+  // `cost` is the only widget with a window to choose. Previewed rather than listed, because
+  // the periods differ in the label they draw as well as the figure.
+  const periodOptions: PreviewOption[] = PERIODS.map((p) => ({
+    value: p,
+    label: p,
+    preview: <WidgetTokens id="cost" item={{ widget: 'cost', period: p, variant: item.variant }} theme={settings.theme} />,
+  }))
+
   const variantOptions: PreviewOption[] = [
     { value: 'default', label: 'default', preview: <WidgetTokens id={item.widget} item={{ widget: item.widget }} theme={settings.theme} /> },
     ...variants.map((v) => ({
@@ -199,6 +209,18 @@ export function ItemOptions({ li, z, ii, item, children }: { li: number; z: Zone
             <Separator />
 
             <StyleToggles item={item} onToggle={(key) => setOption(li, z, ii, { [key]: !item[key] })} />
+          </>
+        )}
+
+        {item.widget === 'cost' && (
+          <>
+            <Separator />
+            <PreviewSelect
+              label="Period"
+              value={item.period ?? 'session'}
+              options={periodOptions}
+              onChange={(v) => setOption(li, z, ii, { period: v === 'session' ? undefined : (v as Period) })}
+            />
           </>
         )}
 

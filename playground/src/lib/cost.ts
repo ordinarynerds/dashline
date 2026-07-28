@@ -20,7 +20,6 @@ const NEEDS: Record<string, Partial<Record<'branch' | 'status' | 'diff' | 'workt
   stash: { status: true },
   diff: { diff: true },
   burn: { history: true },
-  spend: { ledger: true },
 }
 
 // A command item gets the branch and the worktree exported into its environment, so it pulls
@@ -51,6 +50,9 @@ export function costOf(lines: Line[]): Cost {
           continue
         }
         Object.assign(needs, NEEDS[item.widget])
+        // `cost` is the one widget whose probes depend on how it is configured: the week and
+        // month totals come from the spend ledger, the session total is already in the payload.
+        if (item.widget === 'cost' && item.period && item.period !== 'session') needs.ledger = true
       }
     }
   }
@@ -80,7 +82,7 @@ export function costOf(lines: Line[]): Cost {
   }
   if (commands) detail.push(`${commands} shell command${commands > 1 ? 's' : ''} of your own`)
   if (needs.history) detail.push('the session history file, read from disk rather than spawned')
-  if (needs.ledger) detail.push('the weekly spend ledger, one small file read and rewritten')
+  if (needs.ledger) detail.push('the spend ledger, one small file read and rewritten')
 
   return { git, commands, history: Boolean(needs.history || needs.ledger), detail }
 }
