@@ -3,6 +3,11 @@
   "name": "dashline",
   "compatibility_date": "2026-07-25",
 
+  // Pinned so CI needs one secret rather than two. An account ID is a public identifier — it is in
+  // every dashboard URL and is worthless without the API token — so it is safe in a public repo,
+  // and hardcoding it means a deploy can never resolve to the wrong account.
+  "account_id": "0671370cd8bff3540622ff45c3d85e08",
+
   // Static assets only — there is no Worker script. The playground is a client-side SPA, so
   // Cloudflare serves the built files directly and never boots an isolate.
   //
