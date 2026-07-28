@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/ordinarynerds/dashline/compare/v0.11.0...v0.12.0) (2026-07-28)
+
+
+### Features
+
+* spend widget for the week's cost across sessions ([0fe75c1](https://github.com/ordinarynerds/dashline/commit/0fe75c1bcbf65ff9abb5799636d242d60789c1ba))
+
+
+### Bug Fixes
+
+* **playground:** lift the commit scope out of the changelog markdown ([b253fb4](https://github.com/ordinarynerds/dashline/commit/b253fb420025efe0eaa87362c3e87c025d34da21))
+
 ## [0.11.0](https://github.com/ordinarynerds/dashline/compare/v0.10.0...v0.11.0) (2026-07-25)
 
 
