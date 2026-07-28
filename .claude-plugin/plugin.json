@@ -1,6 +1,6 @@
 {
   "name": "dashline",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "A configurable Claude Code status line. Compose payload fields into lines and zones from settings.json, no scripting. Ships with a context + usage default.",
   "author": {
     "name": "Ordinary Nerds",

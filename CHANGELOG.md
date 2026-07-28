@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0](https://github.com/ordinarynerds/dashline/compare/v0.12.0...v0.13.0) (2026-07-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* the `spend` widget is gone; use ["cost", { "period": "week" }]. It shipped in v0.12.0 earlier today and nothing else referenced it.
+
+### Features
+
+* fold spend into cost as a period, and add the month ([3e55a2a](https://github.com/ordinarynerds/dashline/commit/3e55a2a120111b9c3bcf20fa9a621561c2a2f942))
+
+
+### Bug Fixes
+
+* keep breaking changes on a minor bump before 1.0 ([a78fd99](https://github.com/ordinarynerds/dashline/commit/a78fd99a56360b9be322899a25a7687dbb430f82))
+
 ## [0.12.0](https://github.com/ordinarynerds/dashline/compare/v0.11.0...v0.12.0) (2026-07-28)
 
 
