@@ -79,18 +79,12 @@ function parseChangelog(md: string): Release[] {
 
 const changelog = parseChangelog(readFileSync(path.resolve(__dirname, '../CHANGELOG.md'), 'utf8'))
 
-// Where the site is served from, and the base path under that origin. Social cards need absolute
-// URLs, so index.html carries a %SITE% token that the plugin below fills in.
-//
-// The canonical home is the custom domain on Cloudflare Workers, alongside ordinarynerds.com.
-// GitHub Pages still builds from the same source by overriding these two — it serves under a
-// /dashline/ prefix, which changes every asset URL — so the workflow sets them and nothing else in
-// the codebase has to know which target it is building for.
+// Where the site is served from. Social cards need absolute URLs, so index.html carries a %SITE%
+// token that the plugin below fills in. Overridable for preview deploys; the default is the only
+// host that serves this app.
 const SITE = process.env.DASHLINE_SITE ?? 'https://dashline.ordinarynerds.com'
-const BASE = process.env.DASHLINE_BASE ?? '/'
 
 export default defineConfig({
-  base: BASE,
   plugins: [
     react(),
     tailwindcss(),
