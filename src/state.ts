@@ -15,7 +15,7 @@ const SESSION_TTL = 6 * 3600
 
 // Each session owns its own file, so two sessions never write the same file and there is
 // no read-modify-write race. All IO is best-effort: a status line must never fail on it.
-function stateDir(): string {
+export function stateDir(): string {
   const base = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
   return join(base, 'dashline-state')
 }

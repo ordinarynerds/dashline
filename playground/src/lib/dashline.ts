@@ -287,6 +287,16 @@ export const WIDGETS: Record<string, WidgetMeta> = {
   session: { name: 'session usage', desc: '5-hour usage and reset countdown', category: 'usage', parts: [['session ', 'dim'], ['61%', 'green'], [' (↻2h11m)', 'dim']] },
   weekly: { name: 'weekly usage', desc: 'Weekly usage and reset', category: 'usage', parts: [['All ', 'dim'], ['74%', 'yellow'], [' (↻3d16h)', 'dim']] },
   cost: { name: 'cost', desc: 'Estimated session cost', category: 'usage', parts: [['$2.69', 'green']] },
+  spend: {
+    name: 'weekly spend',
+    desc: 'Cost across every session this week, tallied by dashline and reset with your weekly quota',
+    category: 'usage',
+    parts: [
+      ['week ', 'dim'],
+      ['$41.80', 'green'],
+    ],
+    variants: { cents: [['4180c', 'green']], round: [['$42', 'green']] },
+  },
   rate: {
     name: 'burn rate',
     desc: 'Spend per hour, from cost over duration. Waits for a minute of wall clock.',

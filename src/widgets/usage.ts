@@ -5,7 +5,7 @@ import type { Widget } from './types.ts'
 // piece in isolation — only the meter, only the number — so it opts out of the name along with
 // everything else. A label named in config is a direct request and always survives, which
 // present() handles by preferring `opts.label`.
-const named = (label: string, variant: string | undefined) => (variant ? undefined : label)
+export const named = (label: string, variant: string | undefined) => (variant ? undefined : label)
 
 export const session: Widget = {
   data({ payload }, opts) {

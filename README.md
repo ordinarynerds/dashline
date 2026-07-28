@@ -144,6 +144,7 @@ command, and a `{ "text": ... }` item is printed literally.
 | `session`   | `session 61% (↻2h11m)`              | session usage and reset            | percent  |
 | `weekly`    | `All 74%`                           | weekly usage                       | percent  |
 | `cost`      | `$2.69`                             | session cost                       | money    |
+| `spend`     | `week $41.80`                       | cost across the week's sessions    | money    |
 | `rate`      | `$4.10/h`                           | spend per hour                     | money    |
 | `duration`  | `37m`                               | wall-clock this session            | duration |
 | `lines`     | `+156 -23`                          | lines added and removed            | delta    |
@@ -172,8 +173,16 @@ appear after a few refreshes.
 `diff` counts what the working tree has changed against `HEAD`; `lines` counts what this
 session wrote, from the payload. They answer different questions and often disagree.
 
-`cost` is what the session has spent and `rate` is how fast; `rate` waits for a minute of
-wall clock, below which the number is noise. `time` is the clock at the moment of the last
+`cost` is what the session has spent, `rate` is how fast, and `spend` is the week. `rate`
+waits for a minute of wall clock, below which the number is noise.
+
+`spend` is a tally dashline keeps itself, because nothing hands it one: the payload carries
+a cost for the current session and a percentage for the weekly quota, but no money figure
+spanning sessions. It writes each session's running total to a single file in the state
+directory and sums the entries, so it counts the sessions it saw — spend from before you
+installed dashline, or from a session that ran without a status line, is not in it. The
+window follows the weekly quota reset the payload advertises, so the number clears at the
+same moment `weekly` returns to zero. `time` is the clock at the moment of the last
 render, not a ticking one — the status line only redraws when Claude Code refreshes it.
 
 ### Widget variants

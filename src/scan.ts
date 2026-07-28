@@ -11,6 +11,7 @@ export interface Scan {
   commands: string[]
   usesGit: boolean
   usesHistory: boolean
+  usesLedger: boolean
   gitNeeds: GitNeeds
 }
 
@@ -39,11 +40,12 @@ export function scan(lines: LineSpec[]): Scan {
     }
   }
 
-  const { history, ...gitNeeds } = needs
+  const { history, ledger, ...gitNeeds } = needs
   return {
     commands: [...commands],
     usesGit: Object.values(gitNeeds).some(Boolean),
     usesHistory: Boolean(history),
+    usesLedger: Boolean(ledger),
     gitNeeds,
   }
 }

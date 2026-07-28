@@ -11,7 +11,7 @@ import { COMMAND_ITEM, ZONES, type Line } from './dashline'
 // The probes each widget declares in its own `needs`. Keys must stay in step with the widget
 // modules in src/widgets — a widget missing here is counted as free, which is the safe error
 // only because a widget with no needs genuinely is.
-const NEEDS: Record<string, Partial<Record<'branch' | 'status' | 'diff' | 'worktree' | 'sha' | 'history', boolean>>> = {
+const NEEDS: Record<string, Partial<Record<'branch' | 'status' | 'diff' | 'worktree' | 'sha' | 'history' | 'ledger', boolean>>> = {
   branch: { branch: true },
   worktree: { worktree: true },
   sha: { sha: true },
@@ -20,6 +20,7 @@ const NEEDS: Record<string, Partial<Record<'branch' | 'status' | 'diff' | 'workt
   stash: { status: true },
   diff: { diff: true },
   burn: { history: true },
+  spend: { ledger: true },
 }
 
 // A command item gets the branch and the worktree exported into its environment, so it pulls
@@ -31,7 +32,7 @@ export interface Cost {
   git: number
   /** shell commands per refresh, one per command item. */
   commands: number
-  /** Whether anything reads the session history file. */
+  /** Whether anything reads state from disk — the session history file or the spend ledger. */
   history: boolean
   /** Plain-English reasons, in the order the probes run. */
   detail: string[]
@@ -79,6 +80,7 @@ export function costOf(lines: Line[]): Cost {
   }
   if (commands) detail.push(`${commands} shell command${commands > 1 ? 's' : ''} of your own`)
   if (needs.history) detail.push('the session history file, read from disk rather than spawned')
+  if (needs.ledger) detail.push('the weekly spend ledger, one small file read and rewritten')
 
-  return { git, commands, history: Boolean(needs.history), detail }
+  return { git, commands, history: Boolean(needs.history || needs.ledger), detail }
 }

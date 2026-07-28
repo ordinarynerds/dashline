@@ -17,6 +17,8 @@ export interface Ctx {
   now: number
   commands?: Map<string, string | null>
   history?: Sample[]
+  // Week-to-date spend in USD, summed across sessions. Undefined when nothing asked for it.
+  ledger?: number | null
 }
 
 export interface WidgetOpts {
@@ -50,4 +52,5 @@ export interface Widget {
 
 export interface Needs extends GitNeeds {
   history?: boolean
+  ledger?: boolean
 }

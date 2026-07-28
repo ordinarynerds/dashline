@@ -102,6 +102,15 @@ var cost = {
   }
 };
 
+// src/widgets/spend.ts
+var spend = {
+  needs: { ledger: true },
+  data({ ledger }, opts) {
+    if (ledger == null) return null;
+    return { kind: "money", usd: ledger, label: named("week", opts.variant) };
+  }
+};
+
 // src/widgets/duration.ts
 var duration = {
   data({ payload: payload2 }) {
@@ -447,6 +456,7 @@ var registry = {
   session,
   weekly,
   cost,
+  spend,
   duration,
   lines,
   pr,
@@ -682,11 +692,12 @@ function scan(lines2) {
       }
     }
   }
-  const { history: history2, ...gitNeeds2 } = needs;
+  const { history: history2, ledger, ...gitNeeds2 } = needs;
   return {
     commands: [...commands2],
     usesGit: Object.values(gitNeeds2).some(Boolean),
     usesHistory: Boolean(history2),
+    usesLedger: Boolean(ledger),
     gitNeeds: gitNeeds2
   };
 }
@@ -767,6 +778,50 @@ function prune(dir2, now2) {
   if (alive.length > MAX_SESSIONS) {
     alive.sort((a, b) => a.t - b.t).slice(0, alive.length - MAX_SESSIONS).forEach((x) => rmSync(x.path, { force: true }));
   }
+}
+
+// src/ledger.ts
+import { readFileSync as readFileSync3, writeFileSync as writeFileSync2, renameSync as renameSync2, mkdirSync as mkdirSync2 } from "node:fs";
+import { join as join3 } from "node:path";
+var WEEK = 7 * 86400;
+var GAP2 = 5;
+function ledgerFile() {
+  return join3(stateDir(), "spend.json");
+}
+function recordSpend(sessionId, usd, now2, since) {
+  const id = (sessionId ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!id) return null;
+  const file = ledgerFile();
+  let ledger = {};
+  try {
+    const parsed = JSON.parse(readFileSync3(file, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ledger = parsed;
+  } catch {
+  }
+  for (const [key, entry] of Object.entries(ledger)) {
+    if (!entry || typeof entry.t !== "number" || typeof entry.usd !== "number" || entry.t < since) delete ledger[key];
+  }
+  const own = ledger[id];
+  if (usd != null && (!own || now2 - own.t >= GAP2 || usd !== own.usd)) {
+    ledger[id] = { t: now2, usd };
+    try {
+      const dir2 = stateDir();
+      mkdirSync2(dir2, { recursive: true });
+      const tmp = `${file}.tmp`;
+      writeFileSync2(tmp, JSON.stringify(ledger));
+      renameSync2(tmp, file);
+    } catch {
+    }
+  }
+  let total = 0;
+  for (const entry of Object.values(ledger)) total += entry.usd;
+  return total;
+}
+function weekStart(resetsAt, now2) {
+  if (resetsAt == null || !Number.isFinite(resetsAt)) return now2 - WEEK;
+  const start = resetsAt - WEEK;
+  if (start + WEEK > now2) return start;
+  return start + Math.floor((now2 - start) / WEEK) * WEEK;
 }
 
 // src/widgets/command.ts
@@ -1308,7 +1363,7 @@ var payload = parsePayload(raw);
 var config = loadConfig(payload);
 setTheme(config.theme);
 var dir = payload.workspace?.current_dir ?? payload.cwd;
-var { commands, usesGit, usesHistory, gitNeeds } = scan(config.lines);
+var { commands, usesGit, usesHistory, usesLedger, gitNeeds } = scan(config.lines);
 var now = Math.floor(Date.now() / 1e3);
 var ctx = {
   payload,
@@ -1320,7 +1375,13 @@ var ctx = {
     usageCritical: config.usageCriticalAt
   },
   now,
-  history: usesHistory ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now) : void 0
+  history: usesHistory ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now) : void 0,
+  ledger: usesLedger ? recordSpend(
+    payload.session_id,
+    payload.cost?.total_cost_usd ?? null,
+    now,
+    weekStart(payload.rate_limits?.seven_day?.resets_at, now)
+  ) : void 0
 };
 var resolved = await Promise.all(commands.map((cmd) => runCommand(cmd, ctx).then((out) => [cmd, out])));
 ctx.commands = new Map(resolved);

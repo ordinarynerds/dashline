@@ -3,6 +3,7 @@ import { loadConfig } from './config.ts'
 import { readGit } from './util/git.ts'
 import { scan } from './scan.ts'
 import { sampleHistory } from './state.ts'
+import { recordSpend, weekStart } from './ledger.ts'
 import { contextPercent } from './widgets/context.ts'
 import { runCommand } from './widgets/command.ts'
 import { setTheme } from './style.ts'
@@ -14,7 +15,7 @@ const payload = parsePayload(raw)
 const config = loadConfig(payload)
 setTheme(config.theme)
 const dir = payload.workspace?.current_dir ?? payload.cwd
-const { commands, usesGit, usesHistory, gitNeeds } = scan(config.lines)
+const { commands, usesGit, usesHistory, usesLedger, gitNeeds } = scan(config.lines)
 const now = Math.floor(Date.now() / 1000)
 
 const ctx: Ctx = {
@@ -29,6 +30,14 @@ const ctx: Ctx = {
   now,
   history: usesHistory
     ? sampleHistory(payload.session_id, contextPercent(payload), payload.cost?.total_cost_usd ?? null, now)
+    : undefined,
+  ledger: usesLedger
+    ? recordSpend(
+        payload.session_id,
+        payload.cost?.total_cost_usd ?? null,
+        now,
+        weekStart(payload.rate_limits?.seven_day?.resets_at, now),
+      )
     : undefined,
 }
 
